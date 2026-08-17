@@ -1,5 +1,5 @@
 services:
-  # Backend API — Node/Express + SQLite on a persistent disk
+  # Backend API — Node/Express + SQLite
   - type: web
     name: greenmoney-backend
     runtime: node
@@ -8,14 +8,8 @@ services:
     buildCommand: npm install
     startCommand: npm start
     envVars:
-      - key: DB_DIR
-        value: /var/data
       - key: FRONTEND_URL
-        sync: false # set manually once the frontend URL is known (step in guide)
-    disk:
-      name: greenmoney-data
-      mountPath: /var/data
-      sizeGB: 1
+        sync: false
 
   # Frontend — static React build
   - type: web
@@ -26,7 +20,7 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
-        sync: false # set manually to the backend URL (step in guide)
+        sync: false
     routes:
       - type: rewrite
         source: /*
