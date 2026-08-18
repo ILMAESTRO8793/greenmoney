@@ -185,6 +185,47 @@ html, body, #root { height: 100%; margin: 0; }
 }
 .gm-rho-note strong { color: var(--gm-gold); }
 
+.gm-fixture-badge {
+  margin-top: 14px;
+  padding: 8px 14px;
+  background: rgba(212,175,55,0.12);
+  border: 1px solid rgba(212,175,55,0.3);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--gm-gold);
+  display: inline-block;
+}
+
+.gm-fixtures-list { display: flex; flex-direction: column; gap: 8px; }
+.gm-fixture-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--gm-cream);
+  border: 1px solid var(--gm-line);
+  border-radius: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+  text-align: left;
+  font-family: 'Inter', sans-serif;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  width: 100%;
+}
+.gm-fixture-row:hover { border-color: var(--gm-green-deep); }
+.gm-fixture-row--active {
+  border-color: var(--gm-gold);
+  background: var(--gm-gold-soft);
+}
+.gm-fixture-date {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--gm-text-mute);
+  min-width: 130px;
+  flex-shrink: 0;
+}
+.gm-fixture-teams { font-size: 14px; font-weight: 600; color: var(--gm-carbon); }
+.gm-fixture-vs { font-weight: 400; color: var(--gm-text-mute); font-size: 12px; }
+
 .gm-lambda-row {
   display: flex;
   align-items: center;

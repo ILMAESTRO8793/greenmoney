@@ -17,6 +17,15 @@ function marginOf(probs) {
   return Math.abs(1 - sum) < 1e-9 ? 0 : (sum - 1) * 100;
 }
 
+function fmtKickoff(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return d.toLocaleString('es-PA', {
+    weekday: 'short', day: 'numeric', month: 'short',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
 function OddsPill({ label, prob, highlight }) {
   return (
     <div className={`gm-pill ${highlight ? 'gm-pill--gold' : ''}`}>
@@ -124,6 +133,10 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const [fixtures, setFixtures] = useState([]);
+  const [fixturesLoading, setFixturesLoading] = useState(false);
+  const [activeFixtureId, setActiveFixtureId] = useState(null);
+
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -146,8 +159,15 @@ export default function App() {
         setHomeTeamId(ts[0]?.id ?? null);
         setAwayTeamId(ts[1]?.id ?? null);
         setAnalysis(null);
+        setActiveFixtureId(null);
       })
       .catch(e => setError(e.message));
+
+    setFixturesLoading(true);
+    api.getFixtures(leagueId)
+      .then(setFixtures)
+      .catch(e => setError(e.message))
+      .finally(() => setFixturesLoading(false));
   }, [leagueId]);
 
   const loadHistory = useCallback(() => {
@@ -162,12 +182,13 @@ export default function App() {
     if (view === 'history') loadHistory();
   }, [view, loadHistory]);
 
-  const runAnalysis = async () => {
+  const runAnalysis = async (fixtureIdOverride) => {
+    const fxId = fixtureIdOverride !== undefined ? fixtureIdOverride : activeFixtureId;
     if (!homeTeamId || !awayTeamId || homeTeamId === awayTeamId) return;
     setLoading(true);
     setError(null);
     try {
-      const result = await api.analyze(leagueId, homeTeamId, awayTeamId);
+      const result = await api.analyze(leagueId, homeTeamId, awayTeamId, fxId);
       setAnalysis(result);
     } catch (e) {
       setError(e.message);
@@ -177,9 +198,17 @@ export default function App() {
     }
   };
 
+  const selectFixture = (fixture) => {
+    setHomeTeamId(fixture.home_team_id);
+    setAwayTeamId(fixture.away_team_id);
+    setActiveFixtureId(fixture.id);
+    setAnalysis(null);
+  };
+
   const swapTeams = () => {
     setHomeTeamId(awayTeamId);
     setAwayTeamId(homeTeamId);
+    setActiveFixtureId(null);
   };
 
   const deleteHistoryItem = async (id) => {
@@ -238,6 +267,34 @@ export default function App() {
               </p>
             </section>
 
+            <section className="gm-panel gm-fixtures-panel">
+              <div className="gm-panel-head">
+                <h2 className="gm-panel-title">Próximos partidos programados</h2>
+                <span className="gm-panel-note">Datos reales de la liga seleccionada</span>
+              </div>
+              {fixturesLoading ? (
+                <div className="gm-empty">Cargando calendario…</div>
+              ) : fixtures.length === 0 ? (
+                <div className="gm-empty">
+                  No hay partidos programados cargados para esta liga todavía. Puedes seguir usando
+                  el análisis libre más abajo entre cualquier par de equipos.
+                </div>
+              ) : (
+                <div className="gm-fixtures-list">
+                  {fixtures.slice(0, 8).map(f => (
+                    <button
+                      key={f.id}
+                      className={`gm-fixture-row ${activeFixtureId === f.id ? 'gm-fixture-row--active' : ''}`}
+                      onClick={() => selectFixture(f)}
+                    >
+                      <span className="gm-fixture-date">{fmtKickoff(f.kickoff_at)}</span>
+                      <span className="gm-fixture-teams">{f.home_team_name} <span className="gm-fixture-vs">vs</span> {f.away_team_name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+
             <section className="gm-selector-card">
               <div className="gm-selector-grid gm-selector-grid--with-league">
                 <div className="gm-selector-field">
@@ -256,7 +313,7 @@ export default function App() {
               <div className="gm-selector-grid" style={{ marginTop: 14 }}>
                 <div className="gm-selector-field">
                   <label className="gm-label">Equipo local</label>
-                  <select className="gm-select" value={homeTeamId ?? ''} onChange={e => setHomeTeamId(Number(e.target.value))}>
+                  <select className="gm-select" value={homeTeamId ?? ''} onChange={e => { setHomeTeamId(Number(e.target.value)); setActiveFixtureId(null); }}>
                     {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                 </div>
@@ -265,12 +322,12 @@ export default function App() {
 
                 <div className="gm-selector-field">
                   <label className="gm-label">Equipo visitante</label>
-                  <select className="gm-select" value={awayTeamId ?? ''} onChange={e => setAwayTeamId(Number(e.target.value))}>
+                  <select className="gm-select" value={awayTeamId ?? ''} onChange={e => { setAwayTeamId(Number(e.target.value)); setActiveFixtureId(null); }}>
                     {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                 </div>
 
-                <button className="gm-analyze-btn" onClick={runAnalysis} disabled={loading || homeTeamId === awayTeamId}>
+                <button className="gm-analyze-btn" onClick={() => runAnalysis()} disabled={loading || homeTeamId === awayTeamId}>
                   {loading ? 'Calculando…' : 'Generar análisis'}
                 </button>
               </div>
@@ -298,6 +355,12 @@ export default function App() {
                     <span className="gm-lambda-value">λ {analysis.lambdaAway.toFixed(2)}</span>
                     <span className="gm-lambda-tag">goles esperados</span>
                   </div>
+                </div>
+              )}
+
+              {analysis?.kickoffAt && (
+                <div className="gm-fixture-badge">
+                  📅 Partido real programado: {fmtKickoff(analysis.kickoffAt)}
                 </div>
               )}
             </section>

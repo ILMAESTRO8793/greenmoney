@@ -1,6 +1,3 @@
-// In production, VITE_API_URL points at the deployed backend (e.g.
-// https://greenmoney-backend.onrender.com). In development it's unset, so
-// requests go to '/api' and are handled by the Vite dev server proxy.
 const BASE = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api`
   : '/api';
@@ -16,11 +13,12 @@ async function handle(res) {
 export const api = {
   getLeagues: () => fetch(`${BASE}/leagues`).then(handle),
   getTeams: (leagueId) => fetch(`${BASE}/leagues/${leagueId}/teams`).then(handle),
-  analyze: (leagueId, homeTeamId, awayTeamId) =>
+  getFixtures: (leagueId) => fetch(`${BASE}/leagues/${leagueId}/fixtures`).then(handle),
+  analyze: (leagueId, homeTeamId, awayTeamId, fixtureId) =>
     fetch(`${BASE}/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ leagueId, homeTeamId, awayTeamId }),
+      body: JSON.stringify({ leagueId, homeTeamId, awayTeamId, fixtureId }),
     }).then(handle),
   getHistory: (limit = 20) => fetch(`${BASE}/history?limit=${limit}`).then(handle),
   deleteHistory: (id) => fetch(`${BASE}/history/${id}`, { method: 'DELETE' }).then(handle),
