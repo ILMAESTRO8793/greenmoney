@@ -325,10 +325,7 @@ export default function App() {
     <div className="gm-root">
       <header className="gm-header">
         <div className="gm-header-inner">
-          <div className="gm-logo">
-            <img src="/logo.png" alt="Greenmoney" className="gm-logo-img gm-logo-img--small" />
-          </div>
-          <nav className="gm-nav">
+  <nav className="gm-nav">
             <button className={`gm-nav-link ${view === 'analyze' ? 'gm-nav-link--active' : ''}`} onClick={() => setView('analyze')}>
               Analizar
             </button>
