@@ -61,12 +61,12 @@ export async function getMatchPlayerData(fixtureId, homeTeamName, awayTeamName, 
 
   const kickoff = new Date(kickoffAtIso).getTime();
   const now = Date.now();
-  const withinWindow = now >= kickoff - 2 * 60 * 60 * 1000 && now <= kickoff + 2 * 60 * 60 * 1000;
+  const withinWindow = now >= kickoff - 48 * 60 * 60 * 1000 && now <= kickoff + 2 * 60 * 60 * 1000;
 
   if (!withinWindow) {
     return {
       available: false,
-      reason: 'Las alineaciones se publican entre 40 minutos antes y hasta 2 horas después del partido.',
+      reason: 'Las alineaciones y estadísticas de jugadores están disponibles desde 48 horas antes del partido.',
     };
   }
 
