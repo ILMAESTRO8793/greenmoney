@@ -1,9 +1,5 @@
 import { db, initSchema } from './database.js';
 
-initSchema();
-
-// football-data.org v4 — free tier: 10 req/min, includes these top leagues.
-// Docs: https://docs.football-data.org/general/v4/index.html
 const COMPETITIONS = [
   { code: 'PL', name: 'Premier League', country: 'Inglaterra' },
   { code: 'PD', name: 'La Liga', country: 'España' },
@@ -13,23 +9,15 @@ const COMPETITIONS = [
 ];
 
 const API_BASE = 'https://api.football-data.org/v4';
-const TOKEN = process.env.FOOTBALL_DATA_TOKEN;
-
-if (!TOKEN) {
-  console.error('Falta la variable de entorno FOOTBALL_DATA_TOKEN con tu API key de football-data.org.');
-  console.error('Ejecuta: FOOTBALL_DATA_TOKEN=tu_token node src/db/importEuropeanLeagues.js');
-  process.exit(1);
-}
-
-// Free tier is rate-limited to 10 requests/minute -- space calls out safely.
 const REQUEST_DELAY_MS = 6500;
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function fetchJson(path) {
+async function fetchJson(path, token) {
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'X-Auth-Token': TOKEN },
+    headers: { 'X-Auth-Token': token },
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
@@ -38,30 +26,29 @@ async function fetchJson(path) {
   return res.json();
 }
 
-const insertLeague = db.prepare(`
-  INSERT INTO leagues (name, country, rho)
-  VALUES (?, ?, -0.08)
-  ON CONFLICT(name) DO UPDATE SET country = excluded.country
-`);
-const getLeagueId = db.prepare(`SELECT id FROM leagues WHERE name = ?`);
-const insertTeam = db.prepare(`
-  INSERT INTO teams (league_id, name, short_name)
-  VALUES (?, ?, ?)
-  ON CONFLICT(league_id, name) DO UPDATE SET short_name = excluded.short_name
-`);
-const getTeamId = db.prepare(`SELECT id FROM teams WHERE league_id = ? AND name = ?`);
-const insertMatch = db.prepare(`
-  INSERT INTO matches (league_id, home_team_id, away_team_id, home_goals, away_goals, played_at)
-  VALUES (?, ?, ?, ?, ?, ?)
-`);
-const clearLeagueMatches = db.prepare(`DELETE FROM matches WHERE league_id = ?`);
-const clearLeagueTeams = db.prepare(`DELETE FROM teams WHERE league_id = ?`);
+async function importCompetition(comp, token) {
+  const insertLeague = db.prepare(`
+    INSERT INTO leagues (name, country, rho)
+    VALUES (?, ?, -0.08)
+    ON CONFLICT(name) DO UPDATE SET country = excluded.country
+  `);
+  const getLeagueId = db.prepare(`SELECT id FROM leagues WHERE name = ?`);
+  const insertTeam = db.prepare(`
+    INSERT INTO teams (league_id, name, short_name)
+    VALUES (?, ?, ?)
+    ON CONFLICT(league_id, name) DO UPDATE SET short_name = excluded.short_name
+  `);
+  const getTeamId = db.prepare(`SELECT id FROM teams WHERE league_id = ? AND name = ?`);
+  const insertMatch = db.prepare(`
+    INSERT INTO matches (league_id, home_team_id, away_team_id, home_goals, away_goals, played_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
+  const clearLeagueMatches = db.prepare(`DELETE FROM matches WHERE league_id = ?`);
+  const clearLeagueTeams = db.prepare(`DELETE FROM teams WHERE league_id = ?`);
 
-async function importCompetition(comp) {
   console.log(`\n=== ${comp.name} (${comp.country}) ===`);
 
-  const leagueId = insertLeague.run(comp.name, comp.country).lastInsertRowid
-    || getLeagueId.get(comp.name).id;
+  insertLeague.run(comp.name, comp.country);
   const resolvedLeagueId = getLeagueId.get(comp.name).id;
 
   clearLeagueMatches.run(resolvedLeagueId);
@@ -69,7 +56,7 @@ async function importCompetition(comp) {
 
   console.log('Descargando partidos finalizados...');
   await sleep(REQUEST_DELAY_MS);
-  const data = await fetchJson(`/competitions/${comp.code}/matches?status=FINISHED`);
+  const data = await fetchJson(`/competitions/${comp.code}/matches?status=FINISHED`, token);
 
   const teamIdCache = new Map();
   function ensureTeam(name, shortName) {
@@ -100,20 +87,29 @@ async function importCompetition(comp) {
   return { league: comp.name, matches: imported, teams: teamIdCache.size };
 }
 
-async function run() {
+export async function importEuropeanLeagues(token) {
+  initSchema();
   const summary = [];
   for (const comp of COMPETITIONS) {
     try {
-      const result = await importCompetition(comp);
+      const result = await importCompetition(comp, token);
       summary.push(result);
     } catch (err) {
       console.error(`Error importando ${comp.name}:`, err.message);
       summary.push({ league: comp.name, matches: 0, teams: 0, error: err.message });
     }
   }
-
   console.log('\n=== Resumen de importación ===');
   console.table(summary);
+  return summary;
 }
 
-run();
+const isMain = process.argv[1] && process.argv[1].endsWith('importEuropeanLeagues.js');
+if (isMain) {
+  const token = process.env.FOOTBALL_DATA_TOKEN;
+  if (!token) {
+    console.error('Falta la variable de entorno FOOTBALL_DATA_TOKEN.');
+    process.exit(1);
+  }
+  importEuropeanLeagues(token).then(() => process.exit(0));
+}
