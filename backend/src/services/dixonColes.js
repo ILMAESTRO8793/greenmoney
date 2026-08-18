@@ -63,15 +63,16 @@ export function computeTeamStrengths(matches, teamIds) {
 
   const strengths = {};
   for (const id of teamIds) {
-    const hp = homePlayed[id] || 1;
-    const ap = awayPlayed[id] || 1;
+    const hp = homePlayed[id];
+    const ap = awayPlayed[id];
+
     strengths[id] = {
-      homeAttack: (homeGoalsFor[id] / hp) / leagueAvgHomeGF,
-      homeDefense: (homeGoalsAgainst[id] / hp) / leagueAvgAwayGF,
-      awayAttack: (awayGoalsFor[id] / ap) / leagueAvgAwayGF,
-      awayDefense: (awayGoalsAgainst[id] / ap) / leagueAvgHomeGF,
-      homePlayed: homePlayed[id],
-      awayPlayed: awayPlayed[id],
+      homeAttack: hp > 0 ? (homeGoalsFor[id] / hp) / leagueAvgHomeGF : 1,
+      homeDefense: hp > 0 ? (homeGoalsAgainst[id] / hp) / leagueAvgAwayGF : 1,
+      awayAttack: ap > 0 ? (awayGoalsFor[id] / ap) / leagueAvgAwayGF : 1,
+      awayDefense: ap > 0 ? (awayGoalsAgainst[id] / ap) / leagueAvgHomeGF : 1,
+      homePlayed: hp,
+      awayPlayed: ap,
     };
   }
 
