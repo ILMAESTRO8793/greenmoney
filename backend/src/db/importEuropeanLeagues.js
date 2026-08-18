@@ -9,16 +9,22 @@ const COMPETITIONS = [
 ];
 
 const API_BASE = 'https://api.football-data.org/v4';
-const REQUEST_DELAY_MS = 7500;
+const REQUEST_DELAY_MS = 9500;
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function fetchJson(path, token) {
+async function fetchJson(path, token, retriesLeft = 2) {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { 'X-Auth-Token': token },
   });
+  if (res.status === 429 && retriesLeft > 0) {
+    const body = await res.text().catch(() => '');
+    console.log(`Rate limited en ${path}, esperando 15s antes de reintentar (${retriesLeft} intentos restantes)... ${body}`);
+    await sleep(15000);
+    return fetchJson(path, token, retriesLeft - 1);
+  }
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     throw new Error(`football-data.org ${res.status} en ${path}: ${body}`);
@@ -47,7 +53,7 @@ async function importCompetition(comp, token) {
     INSERT INTO fixtures (league_id, home_team_id, away_team_id, kickoff_at, external_id)
     VALUES (?, ?, ?, ?, ?)
   `);
-    const clearLeagueMatches = db.prepare(`DELETE FROM matches WHERE league_id = ?`);
+  const clearLeagueMatches = db.prepare(`DELETE FROM matches WHERE league_id = ?`);
   const clearLeagueFixtures = db.prepare(`DELETE FROM fixtures WHERE league_id = ?`);
   const clearLeagueAnalyses = db.prepare(`DELETE FROM analyses WHERE league_id = ?`);
   const clearLeagueTeams = db.prepare(`DELETE FROM teams WHERE league_id = ?`);
