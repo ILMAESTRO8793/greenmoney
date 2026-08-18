@@ -227,12 +227,7 @@ export default function App() {
       <header className="gm-header">
         <div className="gm-header-inner">
           <div className="gm-logo">
-            <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
-              <path d="M15 2L4 8v9c0 8 4.7 13.4 11 15 6.3-1.6 11-7 11-15V8L15 2z" fill="#0F6A4A" />
-              <path d="M15 2L4 8v9c0 8 4.7 13.4 11 15V2z" fill="#12805A" />
-              <path d="M10.5 15.5l3 3 6-6.5" stroke="#D4AF37" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-            </svg>
-            <span className="gm-logo-text">Greenmoney</span>
+            <img src="/logo.png" alt="Greenmoney" className="gm-logo-img" />
           </div>
           <nav className="gm-nav">
             <button className={`gm-nav-link ${view === 'analyze' ? 'gm-nav-link--active' : ''}`} onClick={() => setView('analyze')}>
