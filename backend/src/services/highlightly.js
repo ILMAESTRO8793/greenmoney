@@ -60,4 +60,35 @@ export async function getMatchPlayerData(fixtureId, homeTeamName, awayTeamName, 
   }
 
   const kickoff = new Date(kickoffAtIso).getTime();
-  const
+  const now = Date.now();
+  const withinWindow = now >= kickoff - 2 * 60 * 60 * 1000 && now <= kickoff + 2 * 60 * 60 * 1000;
+
+  if (!withinWindow) {
+    return {
+      available: false,
+      reason: 'Las alineaciones se publican entre 40 minutos antes y hasta 2 horas después del partido.',
+    };
+  }
+
+  try {
+    const matchId = await findHighlightlyMatchId(homeTeamName, awayTeamName, kickoffAtIso, token);
+    if (!matchId) {
+      return { available: false, reason: 'No se encontró el partido en la fuente de datos de jugadores.' };
+    }
+
+    const lineups = await fetchJson(`/lineups/${matchId}`, token);
+    setCached.run(fixtureId, 'lineups', JSON.stringify(lineups));
+
+    let boxScore = null;
+    try {
+      boxScore = await fetchJson(`/box-score/${matchId}`, token);
+      setCached.run(fixtureId, 'boxscore', JSON.stringify(boxScore));
+    } catch (e) {
+      // Box score might not exist yet if the match hasn't started
+    }
+
+    return { available: true, lineups, boxScore };
+  } catch (err) {
+    return { available: false, reason: err.message };
+  }
+}
