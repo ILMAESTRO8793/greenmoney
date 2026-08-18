@@ -121,6 +121,105 @@ function buildNarrative(homeTeam, awayTeam, lambdaHome, lambdaAway, markets, rho
   return text;
 }
 
+function TeamLineupPanel({ label, team, boxScoreTeam }) {
+  if (!team) return null;
+
+  // Build a quick lookup of box-score stats (shots, etc.) per player name,
+  // since lineups and box scores come from separate Highlightly endpoints.
+  const statsByName = {};
+  if (boxScoreTeam?.players) {
+    for (const p of boxScoreTeam.players) {
+      statsByName[p.name] = p.statistics?.[0] || {};
+    }
+  }
+
+  const starters = (team.initialLineup || []).flat();
+
+  return (
+    <div className="gm-lineup-panel">
+      <div className="gm-lineup-head">
+        <span className="gm-lineup-label">{label}</span>
+        <span className="gm-lineup-team-name">{team.name}</span>
+        {team.formation && <span className="gm-lineup-formation">{team.formation}</span>}
+      </div>
+      <div className="gm-lineup-players">
+        {starters.map((p, i) => {
+          const stats = statsByName[p.name];
+          return (
+            <div key={i} className="gm-lineup-player">
+              <span className="gm-lineup-player-number">{p.number ?? '—'}</span>
+              <div className="gm-lineup-player-info">
+                <span className="gm-lineup-player-name">{p.name}</span>
+                <span className="gm-lineup-player-position">{p.position}</span>
+              </div>
+              {stats && (stats.shotsTotal != null) && (
+                <span className="gm-lineup-player-stat" title="Tiros a puerta / Tiros totales">
+                  {stats.shotsOnTarget ?? 0}/{stats.shotsTotal ?? 0} tiros
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function LineupsSection({ fixtureId }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!fixtureId) {
+      setData(null);
+      return;
+    }
+    setLoading(true);
+    api.getFixturePlayers(fixtureId)
+      .then(setData)
+      .catch(() => setData({ available: false, reason: 'No se pudo cargar la información de jugadores.' }))
+      .finally(() => setLoading(false));
+  }, [fixtureId]);
+
+  if (!fixtureId) return null;
+
+  if (loading) {
+    return (
+      <section className="gm-panel">
+        <div className="gm-panel-head"><h2 className="gm-panel-title">Alineaciones y estadísticas de jugadores</h2></div>
+        <div className="gm-empty">Cargando alineaciones…</div>
+      </section>
+    );
+  }
+
+  if (!data || !data.available) {
+    return (
+      <section className="gm-panel">
+        <div className="gm-panel-head"><h2 className="gm-panel-title">Alineaciones y estadísticas de jugadores</h2></div>
+        <div className="gm-empty">
+          {data?.reason || 'Alineaciones no disponibles todavía para este partido.'}
+        </div>
+      </section>
+    );
+  }
+
+  const homeBoxScore = data.boxScore?.find(t => t.team?.name === data.lineups.homeTeam?.name);
+  const awayBoxScore = data.boxScore?.find(t => t.team?.name === data.lineups.awayTeam?.name);
+
+  return (
+    <section className="gm-panel">
+      <div className="gm-panel-head">
+        <h2 className="gm-panel-title">Alineaciones y estadísticas de jugadores</h2>
+        <span className="gm-panel-note">Datos en vivo de Highlightly</span>
+      </div>
+      <div className="gm-lineups-grid">
+        <TeamLineupPanel label="Local" team={data.lineups.homeTeam} boxScoreTeam={homeBoxScore} />
+        <TeamLineupPanel label="Visitante" team={data.lineups.awayTeam} boxScoreTeam={awayBoxScore} />
+      </div>
+    </section>
+  );
+}
+
 export default function App() {
   const [view, setView] = useState('analyze');
   const [leagues, setLeagues] = useState([]);
@@ -363,6 +462,8 @@ export default function App() {
                 </div>
               )}
             </section>
+
+            <LineupsSection fixtureId={activeFixtureId} />
 
             {!analysis && !loading && (
               <div className="gm-empty-hint">

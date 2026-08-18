@@ -462,3 +462,89 @@ html, body, #root { height: 100%; margin: 0; }
   line-height: 1.5;
   text-align: center;
 }
+
+.gm-lineups-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 760px) {
+  .gm-lineups-grid { grid-template-columns: 1fr; }
+}
+
+.gm-lineup-panel {
+  background: var(--gm-cream);
+  border: 1px solid var(--gm-line);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.gm-lineup-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.gm-lineup-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gm-text-mute);
+}
+.gm-lineup-team-name {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--gm-text);
+}
+.gm-lineup-formation {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--gm-gold);
+  margin-left: auto;
+}
+
+.gm-lineup-players { display: flex; flex-direction: column; gap: 6px; }
+.gm-lineup-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--gm-line);
+}
+.gm-lineup-player:last-child { border-bottom: none; }
+.gm-lineup-player-number {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gm-green-deep);
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.gm-lineup-player-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.gm-lineup-player-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gm-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gm-lineup-player-position {
+  font-size: 10px;
+  color: var(--gm-text-mute);
+}
+.gm-lineup-player-stat {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--gm-gold);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
