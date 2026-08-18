@@ -227,7 +227,7 @@ export default function App() {
       <header className="gm-header">
         <div className="gm-header-inner">
           <div className="gm-logo">
-            <img src="/logo.png" alt="Greenmoney" className="gm-logo-img" />
+            <img src="/logo.png" alt="Greenmoney" className="gm-logo-img gm-logo-img--small" />
           </div>
           <nav className="gm-nav">
             <button className={`gm-nav-link ${view === 'analyze' ? 'gm-nav-link--active' : ''}`} onClick={() => setView('analyze')}>
@@ -251,6 +251,10 @@ export default function App() {
         {view === 'analyze' && (
           <>
             <section className="gm-hero">
+              <div className="gm-hero-brand">
+                <img src="/logo.png" alt="Greenmoney" className="gm-hero-logo" />
+                <span className="gm-hero-brand-text">Green Money</span>
+              </div>
               <div className="gm-hero-eyebrow">Motor Dixon-Coles · Calibración automática por liga</div>
               <h1 className="gm-hero-title">
                 El valor matemático real de cada partido, sin margen oculto.

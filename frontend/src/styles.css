@@ -48,6 +48,7 @@ html, body, #root { height: 100%; margin: 0; }
   display: block;
   border-radius: 6px;
 }
+.gm-logo-img--small { height: 38px; }
 .gm-logo-text {
   font-family: 'Fraunces', serif;
   font-weight: 600;
@@ -94,6 +95,25 @@ html, body, #root { height: 100%; margin: 0; }
 }
 
 .gm-hero { max-width: 680px; margin-bottom: 16px; }
+.gm-hero-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.gm-hero-logo {
+  height: 72px;
+  width: auto;
+  display: block;
+  border-radius: 10px;
+}
+.gm-hero-brand-text {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 32px;
+  letter-spacing: -0.01em;
+  color: var(--gm-text);
+}
 .gm-hero-eyebrow {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
@@ -338,6 +358,8 @@ html, body, #root { height: 100%; margin: 0; }
   .gm-selector-grid, .gm-selector-grid--with-league { grid-template-columns: 1fr; }
   .gm-swap-btn { justify-self: center; }
   .gm-hero-title { font-size: 22px; }
+  .gm-hero-logo { height: 48px; }
+  .gm-hero-brand-text { font-size: 24px; }
 }
 
 .gm-ou-block { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--gm-line); }
