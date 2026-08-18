@@ -9,7 +9,7 @@ const COMPETITIONS = [
 ];
 
 const API_BASE = 'https://api.football-data.org/v4';
-const REQUEST_DELAY_MS = 7000;
+const REQUEST_DELAY_MS = 9500;
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
