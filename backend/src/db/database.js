@@ -49,3 +49,36 @@ export function initSchema() {
       away_team_id INTEGER NOT NULL REFERENCES teams(id),
       kickoff_at TEXT NOT NULL,
       external_id TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS lineup_cache (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      fixture_id INTEGER NOT NULL REFERENCES fixtures(id),
+      kind TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      cached_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(fixture_id, kind)
+    );
+
+    CREATE TABLE IF NOT EXISTS analyses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      league_id INTEGER NOT NULL REFERENCES leagues(id),
+      home_team_id INTEGER NOT NULL REFERENCES teams(id),
+      away_team_id INTEGER NOT NULL REFERENCES teams(id),
+      lambda_home REAL NOT NULL,
+      lambda_away REAL NOT NULL,
+      rho_used REAL NOT NULL,
+      result_json TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_matches_league ON matches(league_id);
+    CREATE INDEX IF NOT EXISTS idx_matches_home ON matches(home_team_id);
+    CREATE INDEX IF NOT EXISTS idx_matches_away ON matches(away_team_id);
+    CREATE INDEX IF NOT EXISTS idx_analyses_league ON analyses(league_id);
+    CREATE INDEX IF NOT EXISTS idx_fixtures_league ON fixtures(league_id);
+    CREATE INDEX IF NOT EXISTS idx_fixtures_kickoff ON fixtures(kickoff_at);
+    CREATE INDEX IF NOT EXISTS idx_lineup_cache_fixture ON lineup_cache(fixture_id);
+  `);
+}
