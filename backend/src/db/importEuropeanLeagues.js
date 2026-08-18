@@ -1,4 +1,4 @@
-import { db, initSchema } from './database.js';
+import { pool, initSchema } from './database.js';
 
 const COMPETITIONS = [
   { code: 'PL', name: 'Premier League', country: 'Inglaterra' },
@@ -33,40 +33,22 @@ async function fetchJson(path, token, retriesLeft = 2) {
 }
 
 async function importCompetition(comp, token) {
-  const insertLeague = db.prepare(`
-    INSERT INTO leagues (name, country, rho)
-    VALUES (?, ?, -0.08)
-    ON CONFLICT(name) DO UPDATE SET country = excluded.country
-  `);
-  const getLeagueId = db.prepare(`SELECT id FROM leagues WHERE name = ?`);
-  const insertTeam = db.prepare(`
-    INSERT INTO teams (league_id, name, short_name)
-    VALUES (?, ?, ?)
-    ON CONFLICT(league_id, name) DO UPDATE SET short_name = excluded.short_name
-  `);
-  const getTeamId = db.prepare(`SELECT id FROM teams WHERE league_id = ? AND name = ?`);
-  const insertMatch = db.prepare(`
-    INSERT INTO matches (league_id, home_team_id, away_team_id, home_goals, away_goals, played_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-  const insertFixture = db.prepare(`
-    INSERT INTO fixtures (league_id, home_team_id, away_team_id, kickoff_at, external_id)
-    VALUES (?, ?, ?, ?, ?)
-  `);
-  const clearLeagueMatches = db.prepare(`DELETE FROM matches WHERE league_id = ?`);
-  const clearLeagueFixtures = db.prepare(`DELETE FROM fixtures WHERE league_id = ?`);
-  const clearLeagueAnalyses = db.prepare(`DELETE FROM analyses WHERE league_id = ?`);
-  const clearLeagueTeams = db.prepare(`DELETE FROM teams WHERE league_id = ?`);
-
   console.log(`\n=== ${comp.name} (${comp.country}) ===`);
 
-  insertLeague.run(comp.name, comp.country);
-  const resolvedLeagueId = getLeagueId.get(comp.name).id;
+  await pool.query(`
+    INSERT INTO leagues (name, country, rho)
+    VALUES ($1, $2, -0.08)
+    ON CONFLICT (name) DO UPDATE SET country = EXCLUDED.country
+  `, [comp.name, comp.country]);
+  const { rows: [{ id: resolvedLeagueId }] } = await pool.query(
+    `SELECT id FROM leagues WHERE name = $1`,
+    [comp.name]
+  );
 
-  clearLeagueMatches.run(resolvedLeagueId);
-  clearLeagueFixtures.run(resolvedLeagueId);
-  clearLeagueAnalyses.run(resolvedLeagueId);
-  clearLeagueTeams.run(resolvedLeagueId);
+  await pool.query(`DELETE FROM matches WHERE league_id = $1`, [resolvedLeagueId]);
+  await pool.query(`DELETE FROM fixtures WHERE league_id = $1`, [resolvedLeagueId]);
+  await pool.query(`DELETE FROM analyses WHERE league_id = $1`, [resolvedLeagueId]);
+  await pool.query(`DELETE FROM teams WHERE league_id = $1`, [resolvedLeagueId]);
 
   console.log('Descargando partidos finalizados...');
   const now = new Date();
@@ -106,10 +88,17 @@ async function importCompetition(comp, token) {
   }
 
   const teamIdCache = new Map();
-  function ensureTeam(name, shortName) {
+  async function ensureTeam(name, shortName) {
     if (teamIdCache.has(name)) return teamIdCache.get(name);
-    insertTeam.run(resolvedLeagueId, name, shortName || name.slice(0, 3).toUpperCase());
-    const id = getTeamId.get(resolvedLeagueId, name).id;
+    await pool.query(`
+      INSERT INTO teams (league_id, name, short_name)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (league_id, name) DO UPDATE SET short_name = EXCLUDED.short_name
+    `, [resolvedLeagueId, name, shortName || name.slice(0, 3).toUpperCase()]);
+    const { rows: [{ id }] } = await pool.query(
+      `SELECT id FROM teams WHERE league_id = $1 AND name = $2`,
+      [resolvedLeagueId, name]
+    );
     teamIdCache.set(name, id);
     return id;
   }
@@ -117,16 +106,12 @@ async function importCompetition(comp, token) {
   let imported = 0;
   for (const m of allMatches) {
     if (m.score?.fullTime?.home == null || m.score?.fullTime?.away == null) continue;
-    const homeId = ensureTeam(m.homeTeam.name, m.homeTeam.tla);
-    const awayId = ensureTeam(m.awayTeam.name, m.awayTeam.tla);
-    insertMatch.run(
-      resolvedLeagueId,
-      homeId,
-      awayId,
-      m.score.fullTime.home,
-      m.score.fullTime.away,
-      m.utcDate.slice(0, 10)
-    );
+    const homeId = await ensureTeam(m.homeTeam.name, m.homeTeam.tla);
+    const awayId = await ensureTeam(m.awayTeam.name, m.awayTeam.tla);
+    await pool.query(`
+      INSERT INTO matches (league_id, home_team_id, away_team_id, home_goals, away_goals, played_at)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [resolvedLeagueId, homeId, awayId, m.score.fullTime.home, m.score.fullTime.away, m.utcDate.slice(0, 10)]);
     imported++;
   }
 
@@ -135,9 +120,12 @@ async function importCompetition(comp, token) {
   let fixturesImported = 0;
   for (const m of scheduledData.matches || []) {
     if (!m.homeTeam?.name || !m.awayTeam?.name || !m.utcDate) continue;
-    const homeId = ensureTeam(m.homeTeam.name, m.homeTeam.tla);
-    const awayId = ensureTeam(m.awayTeam.name, m.awayTeam.tla);
-    insertFixture.run(resolvedLeagueId, homeId, awayId, m.utcDate, String(m.id));
+    const homeId = await ensureTeam(m.homeTeam.name, m.homeTeam.tla);
+    const awayId = await ensureTeam(m.awayTeam.name, m.awayTeam.tla);
+    await pool.query(`
+      INSERT INTO fixtures (league_id, home_team_id, away_team_id, kickoff_at, external_id)
+      VALUES ($1, $2, $3, $4, $5)
+    `, [resolvedLeagueId, homeId, awayId, m.utcDate, String(m.id)]);
     fixturesImported++;
   }
   console.log(`${comp.name}: ${fixturesImported} partidos programados.`);
@@ -151,7 +139,7 @@ async function importCompetition(comp, token) {
 }
 
 export async function importEuropeanLeagues(token) {
-  initSchema();
+  await initSchema();
   const summary = [];
   for (const comp of COMPETITIONS) {
     try {

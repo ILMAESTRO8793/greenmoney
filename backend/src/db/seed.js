@@ -1,4 +1,4 @@
-import { db, initSchema } from './database.js';
+import { pool, initSchema } from './database.js';
 
 // Seeded RNG so the demo dataset is reproducible across reseeds
 function mulberry32(seed) {
@@ -82,22 +82,27 @@ function randomPastDate(daysBackMax) {
   return d.toISOString().slice(0, 10);
 }
 
-function runSeed() {
-  // Prepared here (not at module load) so this only runs after the schema
-  // has been created by initSchema(), regardless of import order.
-  const insertLeague = db.prepare(`INSERT INTO leagues (name, country, rho) VALUES (?, ?, -0.08)`);
-  const insertTeam = db.prepare(`INSERT INTO teams (league_id, name, short_name) VALUES (?, ?, ?)`);
-  const insertMatch = db.prepare(`
-    INSERT INTO matches (league_id, home_team_id, away_team_id, home_goals, away_goals, played_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
+async function runSeed() {
+  const client = await pool.connect();
+  try {
+    await client.query('DELETE FROM analyses; DELETE FROM matches; DELETE FROM teams; DELETE FROM leagues;');
+    await client.query('BEGIN');
 
-  db.exec(`DELETE FROM analyses; DELETE FROM matches; DELETE FROM teams; DELETE FROM leagues;`);
-
-  const txn = db.transaction(() => {
     for (const league of LEAGUES) {
-      const leagueId = insertLeague.run(league.name, league.country).lastInsertRowid;
-      const teamIds = league.teams.map(t => insertTeam.run(leagueId, t.name, t.short).lastInsertRowid);
+      const { rows: [leagueRow] } = await client.query(
+        `INSERT INTO leagues (name, country, rho) VALUES ($1, $2, -0.08) RETURNING id`,
+        [league.name, league.country]
+      );
+      const leagueId = leagueRow.id;
+
+      const teamIds = [];
+      for (const t of league.teams) {
+        const { rows: [teamRow] } = await client.query(
+          `INSERT INTO teams (league_id, name, short_name) VALUES ($1, $2, $3) RETURNING id`,
+          [leagueId, t.name, t.short]
+        );
+        teamIds.push(teamRow.id);
+      }
 
       // Round-robin double (home & away) across ~3 pseudo-seasons for enough
       // sample size to make MLE rho estimation meaningful (matches dixonColes.js threshold of 10+)
@@ -108,29 +113,30 @@ function runSeed() {
             const home = league.teams[i];
             const away = league.teams[j];
             const { hg, ag } = simulateGoals(home.atk, home.def, away.atk, away.def);
-            insertMatch.run(
-              leagueId,
-              teamIds[i],
-              teamIds[j],
-              hg,
-              ag,
-              randomPastDate(365 * (season + 1))
-            );
+            await client.query(`
+              INSERT INTO matches (league_id, home_team_id, away_team_id, home_goals, away_goals, played_at)
+              VALUES ($1, $2, $3, $4, $5, $6)
+            `, [leagueId, teamIds[i], teamIds[j], hg, ag, randomPastDate(365 * (season + 1))]);
           }
         }
       }
     }
-  });
 
-  txn();
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 
-  const counts = db.prepare(`
+  const { rows: counts } = await pool.query(`
     SELECT l.name, COUNT(m.id) as match_count, COUNT(DISTINCT t.id) as team_count
     FROM leagues l
     LEFT JOIN matches m ON m.league_id = l.id
     LEFT JOIN teams t ON t.league_id = l.id
     GROUP BY l.id
-  `).all();
+  `);
 
   console.log('Seed complete:');
   console.table(counts);
@@ -138,11 +144,11 @@ function runSeed() {
 
 // Only seeds if the leagues table is empty -- safe to call on every server
 // boot (e.g. Render deploys) without wiping real data once it exists.
-export function seedIfEmpty() {
-  const { count } = db.prepare(`SELECT COUNT(*) as count FROM leagues`).get();
-  if (count === 0) {
+export async function seedIfEmpty() {
+  const { rows: [{ count }] } = await pool.query(`SELECT COUNT(*) as count FROM leagues`);
+  if (Number(count) === 0) {
     console.log('No hay ligas en la base de datos, sembrando datos de ejemplo...');
-    runSeed();
+    await runSeed();
   } else {
     console.log(`Base de datos ya tiene ${count} liga(s), omitiendo seed.`);
   }
@@ -151,6 +157,9 @@ export function seedIfEmpty() {
 // Allow running as a standalone script too: `node src/db/seed.js` force-reseeds.
 const isMain = process.argv[1] && process.argv[1].endsWith('seed.js');
 if (isMain) {
-  initSchema();
-  runSeed();
+  (async () => {
+    await initSchema();
+    await runSeed();
+    await pool.end();
+  })();
 }

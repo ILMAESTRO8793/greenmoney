@@ -1,68 +1,68 @@
-import Database from 'better-sqlite3';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import pg from 'pg';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const { Pool } = pg;
 
-const DB_DIR = process.env.DB_DIR || __dirname;
-const DB_PATH = path.join(DB_DIR, 'greenmoney.db');
+if (!process.env.DATABASE_URL) {
+  throw new Error('Falta la variable de entorno DATABASE_URL (connection string de Postgres).');
+}
 
-export const db = new Database(DB_PATH);
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
 
-export function initSchema() {
-  db.exec(`
+export async function initSchema() {
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS leagues (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL UNIQUE,
       country TEXT,
       rho REAL DEFAULT -0.08,
-      rho_updated_at TEXT,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      rho_updated_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS teams (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       league_id INTEGER NOT NULL REFERENCES leagues(id),
       name TEXT NOT NULL,
       short_name TEXT,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(league_id, name)
     );
 
     CREATE TABLE IF NOT EXISTS matches (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       league_id INTEGER NOT NULL REFERENCES leagues(id),
       home_team_id INTEGER NOT NULL REFERENCES teams(id),
       away_team_id INTEGER NOT NULL REFERENCES teams(id),
       home_goals INTEGER NOT NULL,
       away_goals INTEGER NOT NULL,
       played_at TEXT NOT NULL,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS fixtures (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       league_id INTEGER NOT NULL REFERENCES leagues(id),
       home_team_id INTEGER NOT NULL REFERENCES teams(id),
       away_team_id INTEGER NOT NULL REFERENCES teams(id),
       kickoff_at TEXT NOT NULL,
       external_id TEXT,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS lineup_cache (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       fixture_id INTEGER NOT NULL REFERENCES fixtures(id),
       kind TEXT NOT NULL,
       payload TEXT NOT NULL,
-      cached_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      cached_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(fixture_id, kind)
     );
 
     CREATE TABLE IF NOT EXISTS analyses (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       league_id INTEGER NOT NULL REFERENCES leagues(id),
       home_team_id INTEGER NOT NULL REFERENCES teams(id),
       away_team_id INTEGER NOT NULL REFERENCES teams(id),
@@ -70,7 +70,7 @@ export function initSchema() {
       lambda_away REAL NOT NULL,
       rho_used REAL NOT NULL,
       result_json TEXT NOT NULL,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
     CREATE INDEX IF NOT EXISTS idx_matches_league ON matches(league_id);
