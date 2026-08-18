@@ -47,8 +47,9 @@ async function importCompetition(comp, token) {
     INSERT INTO fixtures (league_id, home_team_id, away_team_id, kickoff_at, external_id)
     VALUES (?, ?, ?, ?, ?)
   `);
-  const clearLeagueMatches = db.prepare(`DELETE FROM matches WHERE league_id = ?`);
+    const clearLeagueMatches = db.prepare(`DELETE FROM matches WHERE league_id = ?`);
   const clearLeagueFixtures = db.prepare(`DELETE FROM fixtures WHERE league_id = ?`);
+  const clearLeagueAnalyses = db.prepare(`DELETE FROM analyses WHERE league_id = ?`);
   const clearLeagueTeams = db.prepare(`DELETE FROM teams WHERE league_id = ?`);
 
   console.log(`\n=== ${comp.name} (${comp.country}) ===`);
@@ -58,6 +59,7 @@ async function importCompetition(comp, token) {
 
   clearLeagueMatches.run(resolvedLeagueId);
   clearLeagueFixtures.run(resolvedLeagueId);
+  clearLeagueAnalyses.run(resolvedLeagueId);
   clearLeagueTeams.run(resolvedLeagueId);
 
   console.log('Descargando partidos finalizados...');
