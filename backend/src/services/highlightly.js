@@ -27,15 +27,6 @@ async function findHighlightlyMatchId(homeTeamName, awayTeamName, kickoffAtIso, 
   return found ? found.id : null;
 }
 
-const getCached = db.prepare(`
-  SELECT payload, cached_at FROM lineup_cache WHERE fixture_id = ? AND kind = ?
-`);
-const setCached = db.prepare(`
-  INSERT INTO lineup_cache (fixture_id, kind, payload, cached_at)
-  VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-  ON CONFLICT(fixture_id, kind) DO UPDATE SET payload = excluded.payload, cached_at = CURRENT_TIMESTAMP
-`);
-
 const CACHE_TTL_MS = 15 * 60 * 1000;
 
 function isFresh(cachedAt) {
@@ -47,6 +38,15 @@ export async function getMatchPlayerData(fixtureId, homeTeamName, awayTeamName, 
   if (!token) {
     return { available: false, reason: 'Highlightly API key no configurada.' };
   }
+
+  const getCached = db.prepare(`
+    SELECT payload, cached_at FROM lineup_cache WHERE fixture_id = ? AND kind = ?
+  `);
+  const setCached = db.prepare(`
+    INSERT INTO lineup_cache (fixture_id, kind, payload, cached_at)
+    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(fixture_id, kind) DO UPDATE SET payload = excluded.payload, cached_at = CURRENT_TIMESTAMP
+  `);
 
   const cachedLineups = getCached.get(fixtureId, 'lineups');
   const cachedBoxScore = getCached.get(fixtureId, 'boxscore');
