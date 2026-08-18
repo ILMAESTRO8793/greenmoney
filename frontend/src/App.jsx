@@ -66,8 +66,8 @@ function ScoreHeatmap({ matrix, maxShow = 6 }) {
           key={a}
           className="gm-heat-cell"
           style={{
-            background: `rgba(15, 106, 74, ${0.06 + intensity * 0.85})`,
-            color: intensity > 0.55 ? '#F4F1EA' : '#1C2420',
+            background: `rgba(23, 198, 135, ${0.08 + intensity * 0.55})`,
+            color: intensity > 0.4 ? '#0D1310' : '#EDF2EE',
           }}
           title={`${h}-${a}: ${(p * 100).toFixed(2)}%`}
         >

@@ -1,17 +1,18 @@
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 :root {
-  --gm-green-deep: #0F6A4A;
-  --gm-green: #12805A;
-  --gm-green-soft: #E8F3EC;
-  --gm-gold: #D4AF37;
-  --gm-gold-soft: #F7EFD6;
-  --gm-carbon: #1C2420;
-  --gm-carbon-soft: #2A342E;
-  --gm-cream: #FBFAF7;
-  --gm-line: #E2E5E1;
-  --gm-text: #1C2420;
-  --gm-text-mute: #5B665F;
+  --gm-green-deep: #12A374;
+  --gm-green: #17C687;
+  --gm-green-soft: #163328;
+  --gm-gold: #E4C158;
+  --gm-gold-soft: #3A331A;
+  --gm-carbon: #0D1310;
+  --gm-carbon-soft: #17201B;
+  --gm-cream: #101815;
+  --gm-panel: #141D18;
+  --gm-line: #26332C;
+  --gm-text: #EDF2EE;
+  --gm-text-mute: #8FA097;
 }
 
 * { box-sizing: border-box; }
@@ -103,7 +104,7 @@ html, body, #root { height: 100%; margin: 0; }
   line-height: 1.15;
   letter-spacing: -0.015em;
   margin: 0 0 16px;
-  color: var(--gm-carbon);
+  color: var(--gm-text);
 }
 .gm-hero-sub {
   font-size: 16px;
@@ -163,7 +164,7 @@ html, body, #root { height: 100%; margin: 0; }
 .gm-swap-btn:hover { background: rgba(212,175,55,0.15); transform: rotate(180deg); }
 .gm-analyze-btn {
   background: var(--gm-gold);
-  color: var(--gm-carbon);
+  color: var(--gm-text);
   border: none;
   font-family: 'Inter', sans-serif;
   font-weight: 700;
@@ -223,7 +224,7 @@ html, body, #root { height: 100%; margin: 0; }
   min-width: 130px;
   flex-shrink: 0;
 }
-.gm-fixture-teams { font-size: 14px; font-weight: 600; color: var(--gm-carbon); }
+.gm-fixture-teams { font-size: 14px; font-weight: 600; color: var(--gm-text); }
 .gm-fixture-vs { font-weight: 400; color: var(--gm-text-mute); font-size: 12px; }
 
 .gm-lambda-row {
@@ -253,7 +254,7 @@ html, body, #root { height: 100%; margin: 0; }
 }
 
 .gm-panel {
-  background: #fff;
+  background: var(--gm-panel);
   border: 1px solid var(--gm-line);
   border-radius: 16px;
   padding: 24px;
@@ -274,7 +275,7 @@ html, body, #root { height: 100%; margin: 0; }
   font-size: 19px;
   font-weight: 600;
   margin: 0;
-  color: var(--gm-carbon);
+  color: var(--gm-text);
 }
 .gm-panel-subtitle {
   font-family: 'Inter', sans-serif;
@@ -321,7 +322,7 @@ html, body, #root { height: 100%; margin: 0; }
 }
 .gm-pill--gold { border-color: var(--gm-gold); background: var(--gm-gold-soft); }
 .gm-pill-label { font-size: 12px; color: var(--gm-text-mute); font-weight: 500; }
-.gm-pill-prob { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 600; color: var(--gm-carbon); }
+.gm-pill-prob { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 600; color: var(--gm-text); }
 .gm-pill-odds { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--gm-green-deep); font-weight: 600; }
 .gm-pill-odds::before { content: 'cuota '; color: var(--gm-text-mute); font-weight: 400; }
 
@@ -351,7 +352,7 @@ html, body, #root { height: 100%; margin: 0; }
   align-items: center;
   gap: 10px;
 }
-.gm-score-result { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 13px; color: var(--gm-carbon); }
+.gm-score-result { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 13px; color: var(--gm-text); }
 .gm-score-bar-track { background: var(--gm-green-soft); border-radius: 4px; height: 8px; overflow: hidden; }
 .gm-score-bar-fill { background: var(--gm-green-deep); height: 100%; display: block; border-radius: 4px; }
 .gm-score-prob { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--gm-text-mute); text-align: right; }
@@ -378,7 +379,7 @@ html, body, #root { height: 100%; margin: 0; }
   flex-shrink: 0;
 }
 
-.gm-narrative-text { font-size: 15px; line-height: 1.7; color: var(--gm-carbon); margin: 0; }
+.gm-narrative-text { font-size: 15px; line-height: 1.7; color: var(--gm-text); margin: 0; }
 
 .gm-empty { color: var(--gm-text-mute); font-size: 14px; line-height: 1.6; padding: 20px 0; }
 .gm-history-list { display: flex; flex-direction: column; gap: 10px; }
@@ -402,7 +403,7 @@ html, body, #root { height: 100%; margin: 0; }
   font-weight: 700;
   margin-bottom: 2px;
 }
-.gm-history-teams { font-weight: 600; font-size: 14px; color: var(--gm-carbon); }
+.gm-history-teams { font-weight: 600; font-size: 14px; color: var(--gm-text); }
 .gm-history-vs { color: var(--gm-text-mute); font-weight: 400; font-size: 12px; }
 .gm-history-time { font-size: 12px; color: var(--gm-text-mute); margin-top: 2px; }
 .gm-history-odds {
