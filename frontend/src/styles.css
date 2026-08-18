@@ -36,14 +36,14 @@ html, body, #root { height: 100%; margin: 0; }
 .gm-header-inner {
   max-width: 1080px;
   margin: 0 auto;
-  padding: 10px 24px;
+  padding: 8px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 .gm-logo { display: flex; align-items: center; gap: 10px; }
 .gm-logo-img {
-  height: 34px;
+  height: 56px;
   width: auto;
   display: block;
   border-radius: 6px;
