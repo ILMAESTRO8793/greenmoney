@@ -9,7 +9,7 @@ const COMPETITIONS = [
 ];
 
 const API_BASE = 'https://api.football-data.org/v4';
-const REQUEST_DELAY_MS = 9500;
+const REQUEST_DELAY_MS = 7500;
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -43,7 +43,12 @@ async function importCompetition(comp, token) {
     INSERT INTO matches (league_id, home_team_id, away_team_id, home_goals, away_goals, played_at)
     VALUES (?, ?, ?, ?, ?, ?)
   `);
+  const insertFixture = db.prepare(`
+    INSERT INTO fixtures (league_id, home_team_id, away_team_id, kickoff_at, external_id)
+    VALUES (?, ?, ?, ?, ?)
+  `);
   const clearLeagueMatches = db.prepare(`DELETE FROM matches WHERE league_id = ?`);
+  const clearLeagueFixtures = db.prepare(`DELETE FROM fixtures WHERE league_id = ?`);
   const clearLeagueTeams = db.prepare(`DELETE FROM teams WHERE league_id = ?`);
 
   console.log(`\n=== ${comp.name} (${comp.country}) ===`);
@@ -52,6 +57,7 @@ async function importCompetition(comp, token) {
   const resolvedLeagueId = getLeagueId.get(comp.name).id;
 
   clearLeagueMatches.run(resolvedLeagueId);
+  clearLeagueFixtures.run(resolvedLeagueId);
   clearLeagueTeams.run(resolvedLeagueId);
 
   console.log('Descargando partidos finalizados...');
@@ -80,6 +86,17 @@ async function importCompetition(comp, token) {
 
   const allMatches = [...(priorSeasonData.matches || []), ...(currentSeasonData.matches || [])];
 
+  await sleep(REQUEST_DELAY_MS);
+  let scheduledData = { matches: [] };
+  try {
+    scheduledData = await fetchJson(
+      `/competitions/${comp.code}/matches?status=SCHEDULED`,
+      token
+    );
+  } catch (err) {
+    console.log(`(sin partidos programados para ${comp.name}: ${err.message})`);
+  }
+
   const teamIdCache = new Map();
   function ensureTeam(name, shortName) {
     if (teamIdCache.has(name)) return teamIdCache.get(name);
@@ -106,7 +123,23 @@ async function importCompetition(comp, token) {
   }
 
   console.log(`${comp.name}: ${imported} partidos, ${teamIdCache.size} equipos.`);
-  return { league: comp.name, matches: imported, teams: teamIdCache.size };
+
+  let fixturesImported = 0;
+  for (const m of scheduledData.matches || []) {
+    if (!m.homeTeam?.name || !m.awayTeam?.name || !m.utcDate) continue;
+    const homeId = ensureTeam(m.homeTeam.name, m.homeTeam.tla);
+    const awayId = ensureTeam(m.awayTeam.name, m.awayTeam.tla);
+    insertFixture.run(resolvedLeagueId, homeId, awayId, m.utcDate, String(m.id));
+    fixturesImported++;
+  }
+  console.log(`${comp.name}: ${fixturesImported} partidos programados.`);
+
+  return {
+    league: comp.name,
+    matches: imported,
+    teams: teamIdCache.size,
+    fixtures: fixturesImported,
+  };
 }
 
 export async function importEuropeanLeagues(token) {

@@ -4,9 +4,6 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// On Render, mount a persistent disk at /var/data (set DB_DIR=/var/data in
-// the service's environment variables) so the database survives redeploys.
-// Locally, it just writes next to this file as before.
 const DB_DIR = process.env.DB_DIR || __dirname;
 const DB_PATH = path.join(DB_DIR, 'greenmoney.db');
 
@@ -45,6 +42,16 @@ export function initSchema() {
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS fixtures (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      league_id INTEGER NOT NULL REFERENCES leagues(id),
+      home_team_id INTEGER NOT NULL REFERENCES teams(id),
+      away_team_id INTEGER NOT NULL REFERENCES teams(id),
+      kickoff_at TEXT NOT NULL,
+      external_id TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS analyses (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       league_id INTEGER NOT NULL REFERENCES leagues(id),
@@ -61,5 +68,7 @@ export function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_matches_home ON matches(home_team_id);
     CREATE INDEX IF NOT EXISTS idx_matches_away ON matches(away_team_id);
     CREATE INDEX IF NOT EXISTS idx_analyses_league ON analyses(league_id);
+    CREATE INDEX IF NOT EXISTS idx_fixtures_league ON fixtures(league_id);
+    CREATE INDEX IF NOT EXISTS idx_fixtures_kickoff ON fixtures(kickoff_at);
   `);
 }
