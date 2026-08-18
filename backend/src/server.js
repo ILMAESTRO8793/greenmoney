@@ -4,6 +4,7 @@ import { initSchema } from './db/database.js';
 import { router } from './routes/api.js';
 import { seedIfEmpty } from './db/seed.js';
 import { importEuropeanLeagues } from './db/importEuropeanLeagues.js';
+import { importApiFootballLeagues } from './db/importApiFootball.js';
 
 async function start() {
   await initSchema();
@@ -34,6 +35,29 @@ async function start() {
 
     try {
       const summary = await importEuropeanLeagues(footballDataToken);
+      res.json({ ok: true, summary });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/admin/import-leagues-apifootball', async (req, res) => {
+    const adminSecret = process.env.ADMIN_IMPORT_SECRET;
+    const apiFootballKey = process.env.API_FOOTBALL_KEY;
+
+    if (!adminSecret) {
+      return res.status(503).json({ error: 'ADMIN_IMPORT_SECRET no está configurado en el servidor.' });
+    }
+    if (req.query.secret !== adminSecret) {
+      return res.status(403).json({ error: 'Secreto inválido.' });
+    }
+    if (!apiFootballKey) {
+      return res.status(503).json({ error: 'API_FOOTBALL_KEY no está configurado en el servidor.' });
+    }
+
+    try {
+      const summary = await importApiFootballLeagues(apiFootballKey);
       res.json({ ok: true, summary });
     } catch (err) {
       console.error(err);
