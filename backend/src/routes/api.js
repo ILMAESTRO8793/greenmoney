@@ -113,3 +113,69 @@ router.post('/analyze', (req, res) => {
     .run(analysis.rho, leagueId);
 
   const resultJson = JSON.stringify({
+    homeName, awayName,
+    oneXTwo: analysis.markets.oneXTwo,
+    overUnder: analysis.markets.overUnder,
+    btts: analysis.markets.btts,
+    topScores: analysis.markets.topScores,
+    kickoffAt,
+  });
+
+  const insert = db.prepare(`
+    INSERT INTO analyses (league_id, home_team_id, away_team_id, lambda_home, lambda_away, rho_used, result_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(leagueId, homeTeamId, awayTeamId, analysis.lambdaHome, analysis.lambdaAway, analysis.rho, resultJson);
+
+  res.json({
+    id: insert.lastInsertRowid,
+    homeTeam: { id: Number(homeTeamId), name: homeName },
+    awayTeam: { id: Number(awayTeamId), name: awayName },
+    lambdaHome: analysis.lambdaHome,
+    lambdaAway: analysis.lambdaAway,
+    rho: analysis.rho,
+    sampleSize: analysis.sampleSize,
+    leagueAvgHomeGF: analysis.leagueAvgHomeGF,
+    leagueAvgAwayGF: analysis.leagueAvgAwayGF,
+    matrix: analysis.matrix,
+    markets: analysis.markets,
+    kickoffAt,
+  });
+});
+
+router.get('/history', (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 20, 50);
+  const rows = db.prepare(`
+    SELECT a.id, a.lambda_home, a.lambda_away, a.rho_used, a.result_json, a.created_at,
+           l.name as league_name,
+           ht.name as home_name, at.name as away_name
+    FROM analyses a
+    JOIN leagues l ON l.id = a.league_id
+    JOIN teams ht ON ht.id = a.home_team_id
+    JOIN teams at ON at.id = a.away_team_id
+    ORDER BY a.created_at DESC
+    LIMIT ?
+  `).all(limit);
+
+  const history = rows.map(r => {
+    const parsed = JSON.parse(r.result_json);
+    return {
+      id: r.id,
+      leagueName: r.league_name,
+      homeTeam: r.home_name,
+      awayTeam: r.away_name,
+      lambdaHome: r.lambda_home,
+      lambdaAway: r.lambda_away,
+      rho: r.rho_used,
+      oneXTwo: parsed.oneXTwo,
+      createdAt: r.created_at,
+    };
+  });
+
+  res.json(history);
+});
+
+router.delete('/history/:id', (req, res) => {
+  const result = db.prepare(`DELETE FROM analyses WHERE id = ?`).run(req.params.id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Análisis no encontrado.' });
+  res.json({ deleted: true });
+});
