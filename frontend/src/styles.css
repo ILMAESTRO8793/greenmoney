@@ -548,3 +548,93 @@ html, body, #root { height: 100%; margin: 0; }
   white-space: nowrap;
   flex-shrink: 0;
 }
+
+.gm-form-card {
+  background: var(--gm-carbon-soft);
+  border: 1px solid var(--gm-line);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.gm-form-card-head {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gm-text);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.gm-form-card-sub {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--gm-text-mute);
+  white-space: nowrap;
+}
+
+.gm-form-dots {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.gm-form-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--gm-carbon);
+  flex-shrink: 0;
+}
+.gm-form-dot--w { background: var(--gm-green); }
+.gm-form-dot--d { background: #C9A227; }
+.gm-form-dot--l { background: #C0533F; }
+
+.gm-form-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.gm-form-stat { display: flex; flex-direction: column; gap: 2px; text-align: center; }
+.gm-form-stat-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--gm-gold);
+}
+.gm-form-stat-label {
+  font-size: 9px;
+  color: var(--gm-text-mute);
+  line-height: 1.3;
+}
+
+.gm-form-ou-row {
+  display: flex;
+  gap: 8px;
+}
+.gm-form-ou-chip {
+  flex: 1;
+  background: var(--gm-panel);
+  border: 1px solid var(--gm-line);
+  border-radius: 8px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.gm-form-ou-label { font-size: 10px; color: var(--gm-text-mute); }
+.gm-form-ou-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gm-text);
+}

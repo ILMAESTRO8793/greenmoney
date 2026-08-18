@@ -49,6 +49,91 @@ function MarginBadge({ probs }) {
   );
 }
 
+function FormResultDots({ results }) {
+  // results are newest-first from the API; show oldest → newest, left to right
+  const ordered = [...results].reverse();
+  return (
+    <div className="gm-form-dots">
+      {ordered.map((r, i) => (
+        <span
+          key={i}
+          className={`gm-form-dot gm-form-dot--${r.result.toLowerCase()}`}
+          title={`${r.gf}-${r.ga} (${r.result === 'W' ? 'Victoria' : r.result === 'L' ? 'Derrota' : 'Empate'})`}
+        >
+          {r.result}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function TeamFormCard({ teamName, form }) {
+  if (!form || form.played === 0) {
+    return (
+      <div className="gm-form-card">
+        <div className="gm-form-card-head">{teamName}</div>
+        <div className="gm-empty">Sin historial reciente disponible.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="gm-form-card">
+      <div className="gm-form-card-head">
+        {teamName}
+        <span className="gm-form-card-sub">últimos {form.played} partidos</span>
+      </div>
+
+      <FormResultDots results={form.results} />
+
+      <div className="gm-form-stats-grid">
+        <div className="gm-form-stat">
+          <span className="gm-form-stat-value">{form.avgGoalsFor.toFixed(2)}</span>
+          <span className="gm-form-stat-label">goles a favor / partido</span>
+        </div>
+        <div className="gm-form-stat">
+          <span className="gm-form-stat-value">{form.avgGoalsAgainst.toFixed(2)}</span>
+          <span className="gm-form-stat-label">goles en contra / partido</span>
+        </div>
+        <div className="gm-form-stat">
+          <span className="gm-form-stat-value">{(form.bttsPct * 100).toFixed(0)}%</span>
+          <span className="gm-form-stat-label">BTTS ({form.bttsYes}/{form.played})</span>
+        </div>
+      </div>
+
+      <div className="gm-form-ou-row">
+        <div className="gm-form-ou-chip">
+          <span className="gm-form-ou-label">Over 1.5</span>
+          <span className="gm-form-ou-value">{(form.over15Pct * 100).toFixed(0)}%</span>
+        </div>
+        <div className="gm-form-ou-chip">
+          <span className="gm-form-ou-label">Over 2.5</span>
+          <span className="gm-form-ou-value">{(form.over25Pct * 100).toFixed(0)}%</span>
+        </div>
+        <div className="gm-form-ou-chip">
+          <span className="gm-form-ou-label">Over 3.5</span>
+          <span className="gm-form-ou-value">{(form.over35Pct * 100).toFixed(0)}%</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RecentFormSection({ homeTeam, awayTeam, homeForm, awayForm }) {
+  return (
+    <section className="gm-panel">
+      <div className="gm-panel-head">
+        <h2 className="gm-panel-title">Forma reciente</h2>
+        <span className="gm-panel-note">Últimos 10 partidos en la liga · goles, BTTS y Over/Under</span>
+      </div>
+      <div className="gm-two-col">
+        <TeamFormCard teamName={homeTeam.name} form={homeForm} />
+        <TeamFormCard teamName={awayTeam.name} form={awayForm} />
+      </div>
+    </section>
+  );
+}
+
 function ScoreHeatmap({ matrix, maxShow = 6 }) {
   let peak = 0;
   for (let h = 0; h <= maxShow; h++)
@@ -325,7 +410,7 @@ export default function App() {
     <div className="gm-root">
       <header className="gm-header">
         <div className="gm-header-inner">
-  <nav className="gm-nav">
+          <nav className="gm-nav">
             <button className={`gm-nav-link ${view === 'analyze' ? 'gm-nav-link--active' : ''}`} onClick={() => setView('analyze')}>
               Analizar
             </button>
@@ -481,6 +566,13 @@ export default function App() {
                     <OddsPill label={`Gana ${analysis.awayTeam.name}`} prob={analysis.markets.oneXTwo.away} highlight={analysis.markets.oneXTwo.away === Math.max(analysis.markets.oneXTwo.home, analysis.markets.oneXTwo.draw, analysis.markets.oneXTwo.away)} />
                   </div>
                 </section>
+
+                <RecentFormSection
+                  homeTeam={analysis.homeTeam}
+                  awayTeam={analysis.awayTeam}
+                  homeForm={analysis.homeForm}
+                  awayForm={analysis.awayForm}
+                />
 
                 <div className="gm-two-col">
                   <section className="gm-panel">

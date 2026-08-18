@@ -5,6 +5,67 @@ import { getMatchPlayerData } from '../services/highlightly.js';
 
 export const router = Router();
 
+const RECENT_FORM_LIMIT = 10;
+
+async function getRecentForm(teamId, leagueId) {
+  const { rows } = await pool.query(`
+    SELECT home_team_id, away_team_id, home_goals, away_goals, played_at
+    FROM matches
+    WHERE league_id = $1 AND (home_team_id = $2 OR away_team_id = $2)
+    ORDER BY played_at DESC
+    LIMIT $3
+  `, [leagueId, teamId, RECENT_FORM_LIMIT]);
+
+  const played = rows.length;
+  if (played === 0) {
+    return {
+      played: 0,
+      goalsFor: 0, goalsAgainst: 0,
+      avgGoalsFor: 0, avgGoalsAgainst: 0,
+      bttsYes: 0, bttsPct: 0,
+      over15: 0, over25: 0, over35: 0,
+      over15Pct: 0, over25Pct: 0, over35Pct: 0,
+      results: [],
+    };
+  }
+
+  let goalsFor = 0, goalsAgainst = 0, bttsYes = 0, over15 = 0, over25 = 0, over35 = 0;
+  const results = [];
+
+  for (const m of rows) {
+    const isHome = m.home_team_id === teamId;
+    const gf = isHome ? m.home_goals : m.away_goals;
+    const ga = isHome ? m.away_goals : m.home_goals;
+    const total = m.home_goals + m.away_goals;
+
+    goalsFor += gf;
+    goalsAgainst += ga;
+    if (m.home_goals > 0 && m.away_goals > 0) bttsYes++;
+    if (total > 1.5) over15++;
+    if (total > 2.5) over25++;
+    if (total > 3.5) over35++;
+
+    results.push({
+      gf, ga,
+      result: gf > ga ? 'W' : gf < ga ? 'L' : 'D',
+      playedAt: m.played_at,
+    });
+  }
+
+  return {
+    played,
+    goalsFor, goalsAgainst,
+    avgGoalsFor: goalsFor / played,
+    avgGoalsAgainst: goalsAgainst / played,
+    bttsYes, bttsPct: bttsYes / played,
+    over15, over25, over35,
+    over15Pct: over15 / played,
+    over25Pct: over25 / played,
+    over35Pct: over35 / played,
+    results,
+  };
+}
+
 router.get('/leagues', async (req, res) => {
   const { rows } = await pool.query(`SELECT id, name, country, rho, rho_updated_at FROM leagues ORDER BY name`);
   res.json(rows);
@@ -116,6 +177,11 @@ router.post('/analyze', async (req, res) => {
   const homeName = teams.find(t => t.id === Number(homeTeamId)).name;
   const awayName = teams.find(t => t.id === Number(awayTeamId)).name;
 
+  const [homeForm, awayForm] = await Promise.all([
+    getRecentForm(Number(homeTeamId), leagueId),
+    getRecentForm(Number(awayTeamId), leagueId),
+  ]);
+
   await pool.query(`UPDATE leagues SET rho = $1, rho_updated_at = NOW() WHERE id = $2`, [analysis.rho, leagueId]);
 
   const resultJson = JSON.stringify({
@@ -146,6 +212,8 @@ router.post('/analyze', async (req, res) => {
     matrix: analysis.matrix,
     markets: analysis.markets,
     kickoffAt,
+    homeForm,
+    awayForm,
   });
 });
 
