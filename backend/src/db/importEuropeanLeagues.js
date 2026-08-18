@@ -9,7 +9,7 @@ const COMPETITIONS = [
 ];
 
 const API_BASE = 'https://api.football-data.org/v4';
-const REQUEST_DELAY_MS = 6500;
+const REQUEST_DELAY_MS = 7000;
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -55,8 +55,30 @@ async function importCompetition(comp, token) {
   clearLeagueTeams.run(resolvedLeagueId);
 
   console.log('Descargando partidos finalizados...');
+  const now = new Date();
+  const completedSeasonYear = now.getMonth() >= 6
+    ? now.getFullYear() - 1
+    : now.getFullYear() - 2;
+  const currentSeasonYear = completedSeasonYear + 1;
+
   await sleep(REQUEST_DELAY_MS);
-  const data = await fetchJson(`/competitions/${comp.code}/matches?status=FINISHED`, token);
+  const priorSeasonData = await fetchJson(
+    `/competitions/${comp.code}/matches?status=FINISHED&season=${completedSeasonYear}`,
+    token
+  );
+
+  await sleep(REQUEST_DELAY_MS);
+  let currentSeasonData = { matches: [] };
+  try {
+    currentSeasonData = await fetchJson(
+      `/competitions/${comp.code}/matches?status=FINISHED&season=${currentSeasonYear}`,
+      token
+    );
+  } catch (err) {
+    console.log(`(sin datos de temporada actual ${currentSeasonYear} todavía: ${err.message})`);
+  }
+
+  const allMatches = [...(priorSeasonData.matches || []), ...(currentSeasonData.matches || [])];
 
   const teamIdCache = new Map();
   function ensureTeam(name, shortName) {
@@ -68,7 +90,7 @@ async function importCompetition(comp, token) {
   }
 
   let imported = 0;
-  for (const m of data.matches || []) {
+  for (const m of allMatches) {
     if (m.score?.fullTime?.home == null || m.score?.fullTime?.away == null) continue;
     const homeId = ensureTeam(m.homeTeam.name, m.homeTeam.tla);
     const awayId = ensureTeam(m.awayTeam.name, m.awayTeam.tla);
