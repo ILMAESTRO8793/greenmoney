@@ -311,13 +311,17 @@ function getZone(leagueName, position, totalTeams) {
     'Bundesliga': { cl: 4, el: 5, ecl: 6, releg: 2 },
     'Serie A': { cl: 4, el: 5, ecl: 6, releg: 3 },
     'Ligue 1': { cl: 3, el: 4, ecl: 5, releg: 3 },
+    'Eredivisie': { cl: 2, el: 3, ecl: 4, releg: 2 },
+    'Primeira Liga': { cl: 2, el: 3, ecl: 4, releg: 3 },
+    'Championship': { cl: 0, el: 0, ecl: 0, releg: 3 },
+    'Brasileirão': { cl: 0, el: 0, ecl: 0, releg: 4 },
   };
   const z = zones[leagueName];
   if (!z) return null;
 
-  if (position <= z.cl) return 'cl';
-  if (position <= z.el) return 'el';
-  if (position <= z.ecl) return 'ecl';
+  if (z.cl && position <= z.cl) return 'cl';
+  if (z.el && position <= z.el) return 'el';
+  if (z.ecl && position <= z.ecl) return 'ecl';
   if (position > totalTeams - z.releg) return 'releg';
   return null;
 }

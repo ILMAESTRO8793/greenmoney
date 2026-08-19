@@ -6,6 +6,12 @@ const COMPETITIONS = [
   { code: 'BL1', name: 'Bundesliga', country: 'Alemania' },
   { code: 'SA', name: 'Serie A', country: 'Italia' },
   { code: 'FL1', name: 'Ligue 1', country: 'Francia' },
+  { code: 'CL', name: 'Champions League', country: 'Europa' },
+  { code: 'DED', name: 'Eredivisie', country: 'Países Bajos' },
+  { code: 'PPL', name: 'Primeira Liga', country: 'Portugal' },
+  { code: 'ELC', name: 'Championship', country: 'Inglaterra' },
+  { code: 'BSA', name: 'Brasileirão', country: 'Brasil' },
+  { code: 'EC', name: 'Eurocopa', country: 'Europa' },
 ];
 
 const API_BASE = 'https://api.football-data.org/v4';
