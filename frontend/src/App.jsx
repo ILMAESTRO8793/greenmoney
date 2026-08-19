@@ -302,6 +302,26 @@ function LineupsSection({ fixtureId }) {
   );
 }
 
+// UEFA competition slots and relegation zones per league (5 major European
+// leagues, 2026-27 season allocation). Bundesliga has 18 teams, the rest 20.
+function getZone(leagueName, position, totalTeams) {
+  const zones = {
+    'Premier League': { cl: 5, el: 6, ecl: 6, releg: 3 },
+    'La Liga': { cl: 4, el: 5, ecl: 6, releg: 3 },
+    'Bundesliga': { cl: 4, el: 5, ecl: 6, releg: 2 },
+    'Serie A': { cl: 4, el: 5, ecl: 6, releg: 3 },
+    'Ligue 1': { cl: 3, el: 4, ecl: 5, releg: 3 },
+  };
+  const z = zones[leagueName];
+  if (!z) return null;
+
+  if (position <= z.cl) return 'cl';
+  if (position <= z.el) return 'el';
+  if (position <= z.ecl) return 'ecl';
+  if (position > totalTeams - z.releg) return 'releg';
+  return null;
+}
+
 function StandingsSection({ leagues, leagueId, setLeagueId }) {
   const [standings, setStandings] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -335,40 +355,55 @@ function StandingsSection({ leagues, leagueId, setLeagueId }) {
       ) : standings.length === 0 ? (
         <div className="gm-empty">No hay partidos suficientes para calcular la tabla de esta liga.</div>
       ) : (
-        <div className="gm-standings-table-wrap">
-          <table className="gm-standings-table">
-            <thead>
-              <tr>
-                <th className="gm-standings-th gm-standings-th--pos">#</th>
-                <th className="gm-standings-th gm-standings-th--team">Equipo</th>
-                <th className="gm-standings-th">PJ</th>
-                <th className="gm-standings-th">G</th>
-                <th className="gm-standings-th">E</th>
-                <th className="gm-standings-th">P</th>
-                <th className="gm-standings-th">GF</th>
-                <th className="gm-standings-th">GC</th>
-                <th className="gm-standings-th">DG</th>
-                <th className="gm-standings-th gm-standings-th--pts">Pts</th>
-              </tr>
-            </thead>
-            <tbody>
-              {standings.map(t => (
-                <tr key={t.id} className={t.position <= 4 ? 'gm-standings-row--top' : ''}>
-                  <td className="gm-standings-td gm-standings-td--pos">{t.position}</td>
-                  <td className="gm-standings-td gm-standings-td--team">{t.name}</td>
-                  <td className="gm-standings-td">{t.played}</td>
-                  <td className="gm-standings-td">{t.won}</td>
-                  <td className="gm-standings-td">{t.drawn}</td>
-                  <td className="gm-standings-td">{t.lost}</td>
-                  <td className="gm-standings-td">{t.goalsFor}</td>
-                  <td className="gm-standings-td">{t.goalsAgainst}</td>
-                  <td className="gm-standings-td">{t.goalDiff > 0 ? `+${t.goalDiff}` : t.goalDiff}</td>
-                  <td className="gm-standings-td gm-standings-td--pts">{t.points}</td>
+        <>
+          <div className="gm-standings-table-wrap">
+            <table className="gm-standings-table">
+              <thead>
+                <tr>
+                  <th className="gm-standings-th gm-standings-th--pos">#</th>
+                  <th className="gm-standings-th gm-standings-th--team">Equipo</th>
+                  <th className="gm-standings-th">PJ</th>
+                  <th className="gm-standings-th">G</th>
+                  <th className="gm-standings-th">E</th>
+                  <th className="gm-standings-th">P</th>
+                  <th className="gm-standings-th">GF</th>
+                  <th className="gm-standings-th">GC</th>
+                  <th className="gm-standings-th">DG</th>
+                  <th className="gm-standings-th gm-standings-th--pts">Pts</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {standings.map(t => {
+                  const currentLeague = leagues.find(l => l.id === leagueId);
+                  const zone = currentLeague ? getZone(currentLeague.name, t.position, standings.length) : null;
+                  return (
+                    <tr key={t.id} className={zone ? `gm-standings-row--${zone}` : ''}>
+                      <td className="gm-standings-td gm-standings-td--pos">
+                        <span className={`gm-zone-dot ${zone ? `gm-zone-dot--${zone}` : 'gm-zone-dot--none'}`} />
+                        {t.position}
+                      </td>
+                      <td className="gm-standings-td gm-standings-td--team">{t.name}</td>
+                      <td className="gm-standings-td">{t.played}</td>
+                      <td className="gm-standings-td">{t.won}</td>
+                      <td className="gm-standings-td">{t.drawn}</td>
+                      <td className="gm-standings-td">{t.lost}</td>
+                      <td className="gm-standings-td">{t.goalsFor}</td>
+                      <td className="gm-standings-td">{t.goalsAgainst}</td>
+                      <td className="gm-standings-td">{t.goalDiff > 0 ? `+${t.goalDiff}` : t.goalDiff}</td>
+                      <td className="gm-standings-td gm-standings-td--pts">{t.points}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="gm-standings-legend">
+            <span className="gm-standings-legend-item"><span className="gm-zone-dot gm-zone-dot--cl" /> Champions League</span>
+            <span className="gm-standings-legend-item"><span className="gm-zone-dot gm-zone-dot--el" /> Europa League</span>
+            <span className="gm-standings-legend-item"><span className="gm-zone-dot gm-zone-dot--ecl" /> Conference League</span>
+            <span className="gm-standings-legend-item"><span className="gm-zone-dot gm-zone-dot--releg" /> Descenso</span>
+          </div>
+        </>
       )}
     </section>
   );
