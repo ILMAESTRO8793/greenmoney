@@ -62,26 +62,12 @@ async function importCompetition(comp, token) {
   await pool.query(`DELETE FROM analyses WHERE league_id = $1`, [resolvedLeagueId]);
   await pool.query(`DELETE FROM teams WHERE league_id = $1`, [resolvedLeagueId]);
 
-  const season = currentSeasonYear();
-
-  console.log(`Descargando partidos finalizados (temporada ${season})...`);
-  await sleep(REQUEST_DELAY_MS);
-  const finishedData = await fetchJson(
-    `/fixtures?league=${comp.id}&season=${season}&status=FT-AET-PEN`,
-    token
-  );
-
-  console.log('Descargando partidos programados...');
-  await sleep(REQUEST_DELAY_MS);
-  let scheduledData = { response: [] };
-  try {
-    scheduledData = await fetchJson(
-      `/fixtures?league=${comp.id}&season=${season}&status=NS-TBD`,
-      token
-    );
-  } catch (err) {
-    console.log(`(sin partidos programados para ${comp.name}: ${err.message})`);
-  }
+  // rosterSeason is the season currently being played (e.g. 2026 = 2026-27),
+  // used for the official team list and upcoming fixtures. historySeason is
+  // the most recently *completed* season, used to seed the Dixon-Coles model
+  // with real results before the current season has enough matches played.
+  const rosterSeason = currentSeasonYear();
+  const historySeason = rosterSeason - 1;
 
   const teamIdCache = new Map();
   async function ensureTeam(name, shortName) {
@@ -99,11 +85,45 @@ async function importCompetition(comp, token) {
     return id;
   }
 
+  console.log(`Descargando plantel oficial (temporada ${rosterSeason})...`);
+  await sleep(REQUEST_DELAY_MS);
+  const rosterData = await fetchJson(`/teams?league=${comp.id}&season=${rosterSeason}`, token);
+  const currentSeasonTeamNames = new Set();
+  for (const t of rosterData.response || []) {
+    if (!t.team?.name) continue;
+    currentSeasonTeamNames.add(t.team.name);
+    await ensureTeam(t.team.name, t.team.code || t.team.name.slice(0, 3).toUpperCase());
+  }
+  console.log(`${comp.name}: ${currentSeasonTeamNames.size} equipos en el plantel ${rosterSeason}-${String(rosterSeason + 1).slice(2)}.`);
+
+  console.log(`Descargando partidos finalizados (temporada ${historySeason})...`);
+  await sleep(REQUEST_DELAY_MS);
+  const finishedData = await fetchJson(
+    `/fixtures?league=${comp.id}&season=${historySeason}&status=FT-AET-PEN`,
+    token
+  );
+
+  console.log(`Descargando partidos programados (temporada ${rosterSeason})...`);
+  await sleep(REQUEST_DELAY_MS);
+  let scheduledData = { response: [] };
+  try {
+    scheduledData = await fetchJson(
+      `/fixtures?league=${comp.id}&season=${rosterSeason}&status=NS-TBD`,
+      token
+    );
+  } catch (err) {
+    console.log(`(sin partidos programados para ${comp.name}: ${err.message})`);
+  }
+
   let imported = 0;
   for (const m of finishedData.response || []) {
     const homeGoals = m.goals?.home;
     const awayGoals = m.goals?.away;
     if (homeGoals == null || awayGoals == null) continue;
+    // Skip historical matches between teams no longer in this season's
+    // league (relegated sides etc.) so the model isn't skewed by opponents
+    // the current roster will never actually face.
+    if (!currentSeasonTeamNames.has(m.teams.home.name) || !currentSeasonTeamNames.has(m.teams.away.name)) continue;
     const homeId = await ensureTeam(m.teams.home.name, m.teams.home.name.slice(0, 3).toUpperCase());
     const awayId = await ensureTeam(m.teams.away.name, m.teams.away.name.slice(0, 3).toUpperCase());
     await pool.query(`
@@ -113,7 +133,7 @@ async function importCompetition(comp, token) {
     imported++;
   }
 
-  console.log(`${comp.name}: ${imported} partidos, ${teamIdCache.size} equipos.`);
+  console.log(`${comp.name}: ${imported} partidos históricos utilizables, ${teamIdCache.size} equipos totales.`);
 
   let fixturesImported = 0;
   for (const m of scheduledData.response || []) {
@@ -121,18 +141,51 @@ async function importCompetition(comp, token) {
     const homeId = await ensureTeam(m.teams.home.name, m.teams.home.name.slice(0, 3).toUpperCase());
     const awayId = await ensureTeam(m.teams.away.name, m.teams.away.name.slice(0, 3).toUpperCase());
     await pool.query(`
-      INSERT INTO fixtures (league_id, home_team_id, away_team_id, kickoff_at, external_id)
-      VALUES ($1, $2, $3, $4, $5)
-    `, [resolvedLeagueId, homeId, awayId, m.fixture.date, String(m.fixture.id)]);
+      INSERT INTO fixtures (league_id, home_team_id, away_team_id, kickoff_at, external_id, status)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      ON CONFLICT (external_id) DO UPDATE SET kickoff_at = EXCLUDED.kickoff_at, status = EXCLUDED.status
+    `, [resolvedLeagueId, homeId, awayId, m.fixture.date, String(m.fixture.id), m.fixture.status?.short || 'NS']);
     fixturesImported++;
   }
   console.log(`${comp.name}: ${fixturesImported} partidos programados.`);
+
+  // Also pull any already-played fixtures from the current season (roster
+  // season) so the standings table can reflect real 2026-27 results as they
+  // happen, separate from the historical data used for the Dixon-Coles model.
+  console.log(`Descargando partidos ya jugados de la temporada ${rosterSeason} (si los hay)...`);
+  await sleep(REQUEST_DELAY_MS);
+  let playedThisSeasonData = { response: [] };
+  try {
+    playedThisSeasonData = await fetchJson(
+      `/fixtures?league=${comp.id}&season=${rosterSeason}&status=FT-AET-PEN`,
+      token
+    );
+  } catch (err) {
+    console.log(`(sin partidos jugados aún en ${rosterSeason} para ${comp.name}: ${err.message})`);
+  }
+
+  let currentSeasonResultsImported = 0;
+  for (const m of playedThisSeasonData.response || []) {
+    const homeGoals = m.goals?.home;
+    const awayGoals = m.goals?.away;
+    if (homeGoals == null || awayGoals == null || !m.teams?.home?.name || !m.teams?.away?.name) continue;
+    const homeId = await ensureTeam(m.teams.home.name, m.teams.home.name.slice(0, 3).toUpperCase());
+    const awayId = await ensureTeam(m.teams.away.name, m.teams.away.name.slice(0, 3).toUpperCase());
+    await pool.query(`
+      INSERT INTO fixtures (league_id, home_team_id, away_team_id, kickoff_at, external_id, home_goals, away_goals, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      ON CONFLICT (external_id) DO UPDATE SET home_goals = EXCLUDED.home_goals, away_goals = EXCLUDED.away_goals, status = EXCLUDED.status
+    `, [resolvedLeagueId, homeId, awayId, m.fixture.date, String(m.fixture.id), homeGoals, awayGoals, m.fixture.status?.short || 'FT']);
+    currentSeasonResultsImported++;
+  }
+  console.log(`${comp.name}: ${currentSeasonResultsImported} resultados de la temporada ${rosterSeason} ya jugados.`);
 
   return {
     league: comp.name,
     matches: imported,
     teams: teamIdCache.size,
     fixtures: fixturesImported,
+    currentSeasonResults: currentSeasonResultsImported,
   };
 }
 

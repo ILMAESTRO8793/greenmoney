@@ -57,35 +57,12 @@ async function importCompetition(comp, token) {
     : now.getFullYear() - 2;
   const currentSeasonYear = completedSeasonYear + 1;
 
+  // Historical data (prior completed season) seeds the Dixon-Coles model.
   await sleep(REQUEST_DELAY_MS);
   const priorSeasonData = await fetchJson(
     `/competitions/${comp.code}/matches?status=FINISHED&season=${completedSeasonYear}`,
     token
   );
-
-  await sleep(REQUEST_DELAY_MS);
-  let currentSeasonData = { matches: [] };
-  try {
-    currentSeasonData = await fetchJson(
-      `/competitions/${comp.code}/matches?status=FINISHED&season=${currentSeasonYear}`,
-      token
-    );
-  } catch (err) {
-    console.log(`(sin datos de temporada actual ${currentSeasonYear} todavía: ${err.message})`);
-  }
-
-  const allMatches = [...(priorSeasonData.matches || []), ...(currentSeasonData.matches || [])];
-
-  await sleep(REQUEST_DELAY_MS);
-  let scheduledData = { matches: [] };
-  try {
-    scheduledData = await fetchJson(
-      `/competitions/${comp.code}/matches?status=SCHEDULED`,
-      token
-    );
-  } catch (err) {
-    console.log(`(sin partidos programados para ${comp.name}: ${err.message})`);
-  }
 
   const teamIdCache = new Map();
   async function ensureTeam(name, shortName) {
@@ -104,7 +81,7 @@ async function importCompetition(comp, token) {
   }
 
   let imported = 0;
-  for (const m of allMatches) {
+  for (const m of priorSeasonData.matches || []) {
     if (m.score?.fullTime?.home == null || m.score?.fullTime?.away == null) continue;
     const homeId = await ensureTeam(m.homeTeam.name, m.homeTeam.tla);
     const awayId = await ensureTeam(m.awayTeam.name, m.awayTeam.tla);
@@ -115,26 +92,50 @@ async function importCompetition(comp, token) {
     imported++;
   }
 
-  console.log(`${comp.name}: ${imported} partidos, ${teamIdCache.size} equipos.`);
+  console.log(`${comp.name}: ${imported} partidos históricos (temporada ${completedSeasonYear}), ${teamIdCache.size} equipos.`);
+
+  // Current season (all statuses) goes into fixtures: played matches get a
+  // real score for the standings table, unplayed ones stay as upcoming games.
+  console.log(`Descargando calendario completo de la temporada ${currentSeasonYear}...`);
+  await sleep(REQUEST_DELAY_MS);
+  let currentSeasonAllData = { matches: [] };
+  try {
+    currentSeasonAllData = await fetchJson(
+      `/competitions/${comp.code}/matches?season=${currentSeasonYear}`,
+      token
+    );
+  } catch (err) {
+    console.log(`(sin calendario de temporada ${currentSeasonYear} todavía: ${err.message})`);
+  }
 
   let fixturesImported = 0;
-  for (const m of scheduledData.matches || []) {
+  let currentSeasonResultsImported = 0;
+  for (const m of currentSeasonAllData.matches || []) {
     if (!m.homeTeam?.name || !m.awayTeam?.name || !m.utcDate) continue;
     const homeId = await ensureTeam(m.homeTeam.name, m.homeTeam.tla);
     const awayId = await ensureTeam(m.awayTeam.name, m.awayTeam.tla);
+    const homeGoals = m.score?.fullTime?.home ?? null;
+    const awayGoals = m.score?.fullTime?.away ?? null;
     await pool.query(`
-      INSERT INTO fixtures (league_id, home_team_id, away_team_id, kickoff_at, external_id)
-      VALUES ($1, $2, $3, $4, $5)
-    `, [resolvedLeagueId, homeId, awayId, m.utcDate, String(m.id)]);
+      INSERT INTO fixtures (league_id, home_team_id, away_team_id, kickoff_at, external_id, home_goals, away_goals, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      ON CONFLICT (external_id) DO UPDATE SET
+        kickoff_at = EXCLUDED.kickoff_at,
+        home_goals = EXCLUDED.home_goals,
+        away_goals = EXCLUDED.away_goals,
+        status = EXCLUDED.status
+    `, [resolvedLeagueId, homeId, awayId, m.utcDate, String(m.id), homeGoals, awayGoals, m.status]);
     fixturesImported++;
+    if (homeGoals != null && awayGoals != null) currentSeasonResultsImported++;
   }
-  console.log(`${comp.name}: ${fixturesImported} partidos programados.`);
+  console.log(`${comp.name}: ${fixturesImported} partidos de la temporada ${currentSeasonYear} (${currentSeasonResultsImported} ya jugados).`);
 
   return {
     league: comp.name,
     matches: imported,
     teams: teamIdCache.size,
     fixtures: fixturesImported,
+    currentSeasonResults: currentSeasonResultsImported,
   };
 }
 

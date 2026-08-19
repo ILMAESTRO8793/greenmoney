@@ -48,7 +48,10 @@ export async function initSchema() {
       home_team_id INTEGER NOT NULL REFERENCES teams(id),
       away_team_id INTEGER NOT NULL REFERENCES teams(id),
       kickoff_at TEXT NOT NULL,
-      external_id TEXT,
+      home_goals INTEGER,
+      away_goals INTEGER,
+      status TEXT DEFAULT 'NS',
+      external_id TEXT UNIQUE,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
@@ -80,5 +83,22 @@ export async function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_fixtures_league ON fixtures(league_id);
     CREATE INDEX IF NOT EXISTS idx_fixtures_kickoff ON fixtures(kickoff_at);
     CREATE INDEX IF NOT EXISTS idx_lineup_cache_fixture ON lineup_cache(fixture_id);
+  `);
+
+  // Migration for databases created before fixtures had result columns.
+  await pool.query(`
+    ALTER TABLE fixtures ADD COLUMN IF NOT EXISTS home_goals INTEGER;
+    ALTER TABLE fixtures ADD COLUMN IF NOT EXISTS away_goals INTEGER;
+    ALTER TABLE fixtures ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'NS';
+  `);
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fixtures_external_id_key'
+      ) THEN
+        ALTER TABLE fixtures ADD CONSTRAINT fixtures_external_id_key UNIQUE (external_id);
+      END IF;
+    END $$;
   `);
 }

@@ -112,8 +112,12 @@ router.get('/leagues/:id/standings', async (req, res) => {
   );
   if (teams.length === 0) return res.status(404).json({ error: 'Liga no encontrada.' });
 
-  const { rows: matches } = await pool.query(
-    `SELECT home_team_id, away_team_id, home_goals, away_goals FROM matches WHERE league_id = $1`,
+  // Standings reflect the CURRENT season (fixtures with a real result),
+  // not the historical matches table used to seed the Dixon-Coles model.
+  // Every team starts at 0 points until the current season's games are played.
+  const { rows: playedFixtures } = await pool.query(
+    `SELECT home_team_id, away_team_id, home_goals, away_goals FROM fixtures
+     WHERE league_id = $1 AND home_goals IS NOT NULL AND away_goals IS NOT NULL`,
     [leagueId]
   );
 
@@ -126,7 +130,7 @@ router.get('/leagues/:id/standings', async (req, res) => {
     };
   }
 
-  for (const m of matches) {
+  for (const m of playedFixtures) {
     const home = table[m.home_team_id];
     const away = table[m.away_team_id];
     if (!home || !away) continue;
