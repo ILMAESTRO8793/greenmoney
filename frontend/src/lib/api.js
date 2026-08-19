@@ -14,6 +14,7 @@ export const api = {
   getLeagues: () => fetch(`${BASE}/leagues`).then(handle),
   getTeams: (leagueId) => fetch(`${BASE}/leagues/${leagueId}/teams`).then(handle),
   getFixtures: (leagueId) => fetch(`${BASE}/leagues/${leagueId}/fixtures`).then(handle),
+  getStandings: (leagueId) => fetch(`${BASE}/leagues/${leagueId}/standings`).then(handle),
   getFixturePlayers: (fixtureId) => fetch(`${BASE}/fixtures/${fixtureId}/players`).then(handle),
   analyze: (leagueId, homeTeamId, awayTeamId, fixtureId) =>
     fetch(`${BASE}/analyze`, {

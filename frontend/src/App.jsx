@@ -50,7 +50,6 @@ function MarginBadge({ probs }) {
 }
 
 function FormResultDots({ results }) {
-  // results are newest-first from the API; show oldest → newest, left to right
   const ordered = [...results].reverse();
   return (
     <div className="gm-form-dots">
@@ -209,8 +208,6 @@ function buildNarrative(homeTeam, awayTeam, lambdaHome, lambdaAway, markets, rho
 function TeamLineupPanel({ label, team, boxScoreTeam }) {
   if (!team) return null;
 
-  // Build a quick lookup of box-score stats (shots, etc.) per player name,
-  // since lineups and box scores come from separate Highlightly endpoints.
   const statsByName = {};
   if (boxScoreTeam?.players) {
     for (const p of boxScoreTeam.players) {
@@ -305,6 +302,78 @@ function LineupsSection({ fixtureId }) {
   );
 }
 
+function StandingsSection({ leagues, leagueId, setLeagueId }) {
+  const [standings, setStandings] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!leagueId) return;
+    setLoading(true);
+    setError(null);
+    api.getStandings(leagueId)
+      .then(setStandings)
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [leagueId]);
+
+  return (
+    <section className="gm-panel">
+      <div className="gm-panel-head">
+        <h2 className="gm-panel-title">Tabla de posiciones</h2>
+        <select className="gm-select gm-select--inline" value={leagueId ?? ''} onChange={e => setLeagueId(Number(e.target.value))}>
+          {leagues.map(l => (
+            <option key={l.id} value={l.id}>{l.name} ({l.country})</option>
+          ))}
+        </select>
+      </div>
+
+      {loading ? (
+        <div className="gm-empty">Cargando tabla…</div>
+      ) : error ? (
+        <div className="gm-empty">{error}</div>
+      ) : standings.length === 0 ? (
+        <div className="gm-empty">No hay partidos suficientes para calcular la tabla de esta liga.</div>
+      ) : (
+        <div className="gm-standings-table-wrap">
+          <table className="gm-standings-table">
+            <thead>
+              <tr>
+                <th className="gm-standings-th gm-standings-th--pos">#</th>
+                <th className="gm-standings-th gm-standings-th--team">Equipo</th>
+                <th className="gm-standings-th">PJ</th>
+                <th className="gm-standings-th">G</th>
+                <th className="gm-standings-th">E</th>
+                <th className="gm-standings-th">P</th>
+                <th className="gm-standings-th">GF</th>
+                <th className="gm-standings-th">GC</th>
+                <th className="gm-standings-th">DG</th>
+                <th className="gm-standings-th gm-standings-th--pts">Pts</th>
+              </tr>
+            </thead>
+            <tbody>
+              {standings.map(t => (
+                <tr key={t.id} className={t.position <= 4 ? 'gm-standings-row--top' : ''}>
+                  <td className="gm-standings-td gm-standings-td--pos">{t.position}</td>
+                  <td className="gm-standings-td gm-standings-td--team">{t.name}</td>
+                  <td className="gm-standings-td">{t.played}</td>
+                  <td className="gm-standings-td">{t.won}</td>
+                  <td className="gm-standings-td">{t.drawn}</td>
+                  <td className="gm-standings-td">{t.lost}</td>
+                  <td className="gm-standings-td">{t.goalsFor}</td>
+                  <td className="gm-standings-td">{t.goalsAgainst}</td>
+                  <td className="gm-standings-td">{t.goalDiff > 0 ? `+${t.goalDiff}` : t.goalDiff}</td>
+                  <td className="gm-standings-td gm-standings-td--pts">{t.points}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function App() {
   const [view, setView] = useState('analyze');
   const [leagues, setLeagues] = useState([]);
@@ -324,7 +393,6 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  // Load leagues on mount
   useEffect(() => {
     api.getLeagues()
       .then(ls => {
@@ -334,7 +402,6 @@ export default function App() {
       .catch(e => setError(e.message));
   }, []);
 
-  // Load teams whenever league changes
   useEffect(() => {
     if (!leagueId) return;
     api.getTeams(leagueId)
@@ -416,6 +483,9 @@ export default function App() {
             </button>
             <button className={`gm-nav-link ${view === 'history' ? 'gm-nav-link--active' : ''}`} onClick={() => setView('history')}>
               Historial
+            </button>
+            <button className={`gm-nav-link ${view === 'standings' ? 'gm-nav-link--active' : ''}`} onClick={() => setView('standings')}>
+              Tabla
             </button>
           </nav>
         </div>
@@ -671,6 +741,10 @@ export default function App() {
               </div>
             )}
           </section>
+        )}
+
+        {view === 'standings' && (
+          <StandingsSection leagues={leagues} leagueId={leagueId} setLeagueId={setLeagueId} />
         )}
       </main>
 

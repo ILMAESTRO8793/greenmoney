@@ -103,6 +103,67 @@ router.get('/leagues/:id/stats', async (req, res) => {
   res.json(stats);
 });
 
+router.get('/leagues/:id/standings', async (req, res) => {
+  const leagueId = req.params.id;
+
+  const { rows: teams } = await pool.query(
+    `SELECT id, name, short_name FROM teams WHERE league_id = $1`,
+    [leagueId]
+  );
+  if (teams.length === 0) return res.status(404).json({ error: 'Liga no encontrada.' });
+
+  const { rows: matches } = await pool.query(
+    `SELECT home_team_id, away_team_id, home_goals, away_goals FROM matches WHERE league_id = $1`,
+    [leagueId]
+  );
+
+  const table = {};
+  for (const t of teams) {
+    table[t.id] = {
+      id: t.id, name: t.name, shortName: t.short_name,
+      played: 0, won: 0, drawn: 0, lost: 0,
+      goalsFor: 0, goalsAgainst: 0, goalDiff: 0, points: 0,
+    };
+  }
+
+  for (const m of matches) {
+    const home = table[m.home_team_id];
+    const away = table[m.away_team_id];
+    if (!home || !away) continue;
+
+    home.played++; away.played++;
+    home.goalsFor += m.home_goals; home.goalsAgainst += m.away_goals;
+    away.goalsFor += m.away_goals; away.goalsAgainst += m.home_goals;
+
+    if (m.home_goals > m.away_goals) {
+      home.won++; home.points += 3;
+      away.lost++;
+    } else if (m.home_goals < m.away_goals) {
+      away.won++; away.points += 3;
+      home.lost++;
+    } else {
+      home.drawn++; away.drawn++;
+      home.points++; away.points++;
+    }
+  }
+
+  const standings = Object.values(table).map(t => ({
+    ...t,
+    goalDiff: t.goalsFor - t.goalsAgainst,
+  }));
+
+  standings.sort((a, b) =>
+    b.points - a.points ||
+    b.goalDiff - a.goalDiff ||
+    b.goalsFor - a.goalsFor ||
+    a.name.localeCompare(b.name)
+  );
+
+  standings.forEach((t, i) => { t.position = i + 1; });
+
+  res.json(standings);
+});
+
 router.get('/leagues/:id/fixtures', async (req, res) => {
   const leagueId = req.params.id;
   const { rows } = await pool.query(`
